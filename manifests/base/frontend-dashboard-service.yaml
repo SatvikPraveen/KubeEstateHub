@@ -1,0 +1,27 @@
+# Location: `/manifests/base/frontend-dashboard-service.yaml`
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-dashboard
+  namespace: kubeestatehub
+  labels:
+    app: frontend-dashboard
+    app.kubernetes.io/name: frontend-dashboard
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: kubeestatehub
+    tier: frontend
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "80"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app: frontend-dashboard
+  sessionAffinity: None

@@ -1,0 +1,31 @@
+# Location: `/manifests/base/image-store-service.yaml`
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: image-store
+  namespace: kubeestatehub
+  labels:
+    app: image-store
+    app.kubernetes.io/name: image-store
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: kubeestatehub
+    tier: backend
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9000"
+    prometheus.io/path: "/minio/v2/metrics/cluster"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+      name: api
+    - port: 9001
+      targetPort: 9001
+      protocol: TCP
+      name: console
+  selector:
+    app: image-store
+  sessionAffinity: None

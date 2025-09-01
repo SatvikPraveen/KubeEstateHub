@@ -1,0 +1,25 @@
+# Location: `/manifests/monitoring/prometheus-service.yaml`
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: kubeestatehub
+  labels:
+    app: prometheus
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: kubeestatehub
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: http
+  selector:
+    app: prometheus

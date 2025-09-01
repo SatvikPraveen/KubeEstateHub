@@ -1,0 +1,19 @@
+# Location: `/manifests/base/namespace.yaml`
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kubeestatehub
+  labels:
+    name: kubeestatehub
+    app.kubernetes.io/name: kubeestatehub
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: namespace
+    app.kubernetes.io/part-of: kubeestatehub
+    app.kubernetes.io/managed-by: kubectl
+    environment: production
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: ""
+spec:
+  finalizers:
+    - kubernetes

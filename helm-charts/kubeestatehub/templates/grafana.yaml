@@ -1,0 +1,80 @@
+# Location: `/helm-charts/kubeestatehub/templates/grafana.yaml`
+
+{{- if and .Values.monitoring.enabled .Values.monitoring.grafana.enabled .Values.monitoring.grafana.dashboards.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-grafana-dashboards
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+    grafana_dashboard: "1"
+data:
+  kubeestatehub-overview.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "KubeEstateHub Overview - {{ .Release.Name }}",
+        "tags": ["kubeestatehub", "overview", "{{ .Release.Name }}"],
+        "style": "dark",
+        "timezone": "browser",
+        "panels": [
+          {
+            "id": 1,
+            "title": "API Requests/sec",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "sum(rate(http_requests_total{namespace=\"{{ .Release.Namespace }}\", job=~\".*listings-api.*\"}[5m]))",
+                "legendFormat": "Requests/sec"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "palette-classic"},
+                "unit": "reqps"
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0}
+          },
+          {
+            "id": 2,
+            "title": "Response Time (95th percentile)",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{namespace=\"{{ .Release.Namespace }}\", job=~\".*listings-api.*\"}[5m]))",
+                "legendFormat": "95th percentile"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "thresholds"},
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},
+                    {"color": "yellow", "value": 1},
+                    {"color": "red", "value": 2}
+                  ]
+                },
+                "unit": "s"
+              }
+            },
+            "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0}
+          },
+          {
+            "id": 3,
+            "title": "Error Rate",
+            "type": "stat",
+            "targets": [
+              {
+                "expr": "(sum(rate(http_requests_total{namespace=\"{{ .Release.Namespace }}\", job=~\".*listings-api.*\", status=~\"5..\"}[5m])) / sum(rate(http_requests_total{namespace=\"{{ .Release.Namespace }}\", job=~\".*listings-api.*\"}[5m]))) * 100",
+                "legendFormat": "Error Rate %"
+              }
+            ],
+            "fieldConfig": {
+              "defaults": {
+                "color": {"mode": "thresholds"},
+                "thresholds": {
+                  "steps": [
+                    {"color": "green", "value": null},

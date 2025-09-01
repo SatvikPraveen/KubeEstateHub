@@ -1,0 +1,60 @@
+# Location: `/manifests/autoscaling/hpa-frontend-dashboard.yaml`
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-dashboard-hpa
+  namespace: kubeestatehub
+  labels:
+    app: frontend-dashboard
+    app.kubernetes.io/name: frontend-dashboard-hpa
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-dashboard
+  minReplicas: 3
+  maxReplicas: 15
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 30
+          periodSeconds: 60
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+      selectPolicy: Min
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+        - type: Pods
+          value: 3
+          periodSeconds: 30
+      selectPolicy: Max
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Pods
+      pods:
+        metric:
+          name: nginx_connections_active
+        target:
+          type: AverageValue
+          averageValue: "50"

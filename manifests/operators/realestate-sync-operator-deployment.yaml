@@ -1,0 +1,214 @@
+# Location: `/manifests/operators/realestate-sync-operator-deployment.yaml`
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: realestate-sync-operator
+  namespace: kubeestatehub
+  labels:
+    app: realestate-sync-operator
+    app.kubernetes.io/name: realestate-sync-operator
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: realestate-sync-operator
+  template:
+    metadata:
+      labels:
+        app: realestate-sync-operator
+        app.kubernetes.io/name: realestate-sync-operator
+        app.kubernetes.io/component: operator
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: realestate-sync-operator-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1003
+        runAsGroup: 1003
+        fsGroup: 1003
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: operator
+          image: ghcr.io/kubeestatehub/realestate-sync-operator:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
+            - containerPort: 8081
+              name: health
+              protocol: TCP
+          env:
+            - name: WATCH_NAMESPACE
+              value: "kubeestatehub"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "realestate-sync-operator"
+            - name: METRICS_BIND_ADDRESS
+              value: "0.0.0.0:8080"
+            - name: HEALTH_PROBE_BIND_ADDRESS
+              value: "0.0.0.0:8081"
+            - name: LEADER_ELECT
+              value: "true"
+            - name: LEADER_ELECTION_ID
+              value: "realestate-sync-operator-leader"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: ENABLE_WEBHOOKS
+              value: "true"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: database-url
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+              ephemeral-storage: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1003
+            runAsGroup: 1003
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: operator-config
+              mountPath: /etc/operator
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: operator-config
+          configMap:
+            name: realestate-sync-operator-config
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 10
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: realestate-sync-operator-metrics
+  namespace: kubeestatehub
+  labels:
+    app: realestate-sync-operator
+    app.kubernetes.io/name: realestate-sync-operator-metrics
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: metrics
+  selector:
+    app: realestate-sync-operator
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: realestate-sync-operator-config
+  namespace: kubeestatehub
+  labels:
+    app: realestate-sync-operator
+    app.kubernetes.io/name: realestate-sync-operator-config
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+data:
+  config.yaml: |
+    operator:
+      name: realestate-sync-operator
+      namespace: kubeestatehub
+      reconcileInterval: 30s
+      maxConcurrentReconciles: 5
+      
+    sync:
+      defaultTimeout: 30m
+      defaultBatchSize: 100
+      defaultRetryLimit: 3
+      
+    sources:
+      mls:
+        timeout: 45m
+        batchSize: 500
+        rateLimit: 100
+      api:
+        timeout: 20m
+        batchSize: 200
+        rateLimit: 50
+      csv:
+        timeout: 15m
+        batchSize: 1000
+        rateLimit: 200
+      xml:
+        timeout: 25m
+        batchSize: 300
+        rateLimit: 75
+        
+    destinations:
+      database:
+        connectionPoolSize: 10
+        maxIdleConnections: 5
+        connectionTimeout: 10s
+      webhook:
+        timeout: 30s
+        retries: 3
+        
+    monitoring:
+      metricsPort: 8080
+      healthPort: 8081
+      enableProfiling: false
+      
+    logging:
+      level: info
+      format: json
+      enableStackTrace: false

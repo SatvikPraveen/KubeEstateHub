@@ -1,0 +1,44 @@
+# Location: `/kustomize/base/kustomization.yaml`
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: kubeestatehub-base
+
+resources:
+  - ../../manifests/base/namespace.yaml
+  - ../../manifests/base/listings-api-deployment.yaml
+  - ../../manifests/base/listings-api-service.yaml
+  - ../../manifests/base/analytics-worker-deployment.yaml
+  - ../../manifests/base/analytics-worker-cronjob.yaml
+  - ../../manifests/base/frontend-dashboard-deployment.yaml
+  - ../../manifests/base/frontend-dashboard-service.yaml
+  - ../../manifests/base/db-statefulset.yaml
+  - ../../manifests/base/db-service.yaml
+  - ../../manifests/base/image-store-deployment.yaml
+  - ../../manifests/base/image-store-service.yaml
+  - ../../manifests/base/ingress.yaml
+  - ../../manifests/storage
+  - ../../manifests/configs
+  - ../../manifests/network
+  - ../../manifests/security
+  - ../../manifests/monitoring
+  - ../../manifests/autoscaling
+  - ../../manifests/jobs
+
+images:
+  - name: ghcr.io/kubeestatehub/listings-api
+    newTag: latest
+  - name: ghcr.io/kubeestatehub/analytics-worker
+    newTag: latest
+  - name: ghcr.io/kubeestatehub/frontend-dashboard
+    newTag: latest
+  - name: ghcr.io/kubeestatehub/metrics-service
+    newTag: latest
+
+commonLabels:
+  app.kubernetes.io/part-of: kubeestatehub
+  app.kubernetes.io/managed-by: kustomize
+
+namespace: kubeestatehub

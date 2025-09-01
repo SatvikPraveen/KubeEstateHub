@@ -1,0 +1,35 @@
+# Location: `/manifests/storage/image-store-pv.yaml`
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: image-store-pv
+  labels:
+    app: image-store
+    app.kubernetes.io/name: image-store-pv
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: kubeestatehub
+    type: object-storage
+    storage-tier: standard
+spec:
+  capacity:
+    storage: 200Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: standard-hdd
+  volumeMode: Filesystem
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/os
+              operator: In
+              values:
+                - linux
+            - key: node-role.kubernetes.io/storage
+              operator: Exists
+  awsElasticBlockStore:
+    volumeID: vol-0987654321fedcba0
+    fsType: ext4
+    encrypted: true

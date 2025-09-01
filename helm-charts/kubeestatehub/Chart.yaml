@@ -1,0 +1,59 @@
+# Location: `/helm-charts/kubeestatehub/Chart.yaml`
+
+apiVersion: v2
+name: kubeestatehub
+description: A Helm chart for KubeEstateHub - Real Estate Management Platform on Kubernetes
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+
+keywords:
+  - real-estate
+  - property-management
+  - kubernetes
+  - microservices
+  - monitoring
+
+home: https://github.com/your-org/kubeestatehub
+sources:
+  - https://github.com/your-org/kubeestatehub
+
+maintainers:
+  - name: KubeEstateHub Team
+    email: team@kubeestatehub.io
+    url: https://kubeestatehub.io
+
+icon: https://kubeestatehub.io/icon.png
+
+annotations:
+  category: Real Estate
+  licenses: MIT
+  images: |
+    - name: listings-api
+      image: ghcr.io/kubeestatehub/listings-api:1.0.0
+    - name: analytics-worker
+      image: ghcr.io/kubeestatehub/analytics-worker:1.0.0
+    - name: frontend-dashboard
+      image: ghcr.io/kubeestatehub/frontend-dashboard:1.0.0
+    - name: postgresql
+      image: postgres:15.4-alpine
+    - name: minio
+      image: minio/minio:RELEASE.2023-09-04T19-57-37Z
+
+dependencies:
+  - name: postgresql
+    version: "12.8.2"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: "17.11.3"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+  - name: prometheus
+    version: "23.1.0"
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: monitoring.prometheus.enabled
+  - name: grafana
+    version: "6.58.7"
+    repository: https://grafana.github.io/helm-charts
+    condition: monitoring.grafana.enabled

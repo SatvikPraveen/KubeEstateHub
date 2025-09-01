@@ -1,0 +1,149 @@
+# Location: `/manifests/base/analytics-worker-deployment.yaml`
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-worker
+  namespace: kubeestatehub
+  labels:
+    app: analytics-worker
+    app.kubernetes.io/name: analytics-worker
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/part-of: kubeestatehub
+    app.kubernetes.io/managed-by: kubectl
+    tier: backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: analytics-worker
+  template:
+    metadata:
+      labels:
+        app: analytics-worker
+        app.kubernetes.io/name: analytics-worker
+        app.kubernetes.io/component: worker
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: analytics-worker-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: analytics-worker
+          image: ghcr.io/kubeestatehub/analytics-worker:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9090
+              name: metrics
+              protocol: TCP
+          env:
+            - name: WORKER_CONCURRENCY
+              valueFrom:
+                configMapKeyRef:
+                  name: analytics-configmap
+                  key: worker-concurrency
+            - name: QUEUE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: analytics-configmap
+                  key: queue-name
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-secret
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: analytics-configmap
+                  key: redis-url
+          envFrom:
+            - configMapRef:
+                name: analytics-configmap
+            - secretRef:
+                name: global-env-secret
+          resources:
+            requests:
+              cpu: 300m
+              memory: 512Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+              ephemeral-storage: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 9090
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 9090
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: var-cache
+              mountPath: /var/cache
+            - name: worker-data
+              mountPath: /app/data
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: var-cache
+          emptyDir: {}
+        - name: worker-data
+          emptyDir:
+            sizeLimit: 5Gi
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 60
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        kubernetes.io/os: linux
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - analytics-worker
+                topologyKey: kubernetes.io/hostname

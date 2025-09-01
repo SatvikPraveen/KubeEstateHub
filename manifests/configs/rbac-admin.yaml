@@ -1,0 +1,121 @@
+# Location: `/manifests/configs/rbac-admin.yaml`
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeestatehub-admin
+  labels:
+    app.kubernetes.io/name: kubeestatehub-admin
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: kubeestatehub
+rules:
+  - apiGroups: [""]
+    resources:
+      [
+        "pods",
+        "services",
+        "endpoints",
+        "persistentvolumeclaims",
+        "configmaps",
+        "secrets",
+      ]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors", "prometheusrules"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: kubeestatehub
+  name: kubeestatehub-admin
+  labels:
+    app.kubernetes.io/name: kubeestatehub-admin
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: kubeestatehub
+rules:
+  - apiGroups: [""]
+    resources:
+      [
+        "pods",
+        "pods/log",
+        "pods/exec",
+        "services",
+        "endpoints",
+        "persistentvolumeclaims",
+        "configmaps",
+        "secrets",
+        "events",
+      ]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["extensions", "networking.k8s.io"]
+    resources: ["ingresses", "networkpolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubeestatehub-admin-binding
+  labels:
+    app.kubernetes.io/name: kubeestatehub-admin-binding
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: kubeestatehub
+subjects:
+  - kind: User
+    name: kubeestatehub-admin@company.com
+    apiGroup: rbac.authorization.k8s.io
+  - kind: ServiceAccount
+    name: kubeestatehub-admin-sa
+    namespace: kubeestatehub
+roleRef:
+  kind: ClusterRole
+  name: kubeestatehub-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubeestatehub-admin-binding
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: kubeestatehub-admin-binding
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/part-of: kubeestatehub
+subjects:
+  - kind: User
+    name: kubeestatehub-admin@company.com
+    apiGroup: rbac.authorization.k8s.io
+  - kind: ServiceAccount
+    name: listings-api-sa
+    namespace: kubeestatehub
+  - kind: ServiceAccount
+    name: analytics-worker-sa
+    namespace: kubeestatehub
+roleRef:
+  kind: Role
+  name: kubeestatehub-admin
+  apiGroup: rbac.authorization.k8s.io

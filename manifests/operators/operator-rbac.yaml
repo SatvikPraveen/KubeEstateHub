@@ -1,0 +1,101 @@
+# Location: `/manifests/operators/operator-rbac.yaml`
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: realestate-sync-operator-sa
+  namespace: kubeestatehub
+  labels:
+    app: realestate-sync-operator
+    app.kubernetes.io/name: realestate-sync-operator-sa
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: realestate-sync-operator
+  labels:
+    app.kubernetes.io/name: realestate-sync-operator
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: [""]
+    resources: ["secrets", "configmaps"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["realestate.kubeestatehub.io"]
+    resources: ["realestatesyncs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["realestate.kubeestatehub.io"]
+    resources: ["realestatesyncs/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["realestate.kubeestatehub.io"]
+    resources: ["realestatesyncs/finalizers"]
+    verbs: ["update"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: realestate-sync-operator
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: realestate-sync-operator
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: realestate-sync-operator
+  labels:
+    app.kubernetes.io/name: realestate-sync-operator
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: realestate-sync-operator
+subjects:
+  - kind: ServiceAccount
+    name: realestate-sync-operator-sa
+    namespace: kubeestatehub
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: realestate-sync-operator
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: realestate-sync-operator
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: realestate-sync-operator
+subjects:
+  - kind: ServiceAccount
+    name: realestate-sync-operator-sa
+    namespace: kubeestatehub

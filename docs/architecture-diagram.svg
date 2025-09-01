@@ -1,0 +1,261 @@
+<!-- Location: `/docs/architecture-diagram.svg` -->
+<svg width="1200" height="800" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="800" fill="#f8fafc"/>
+  
+  <!-- Title -->
+  <text x="600" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#1e293b">
+    KubeEstateHub Architecture
+  </text>
+  
+  <!-- External User -->
+  <g id="user">
+    <circle cx="100" cy="120" r="25" fill="#3b82f6" stroke="#1e40af" stroke-width="2"/>
+    <text x="100" y="125" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white">User</text>
+    <text x="100" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#64748b">External Client</text>
+  </g>
+  
+  <!-- Internet/Load Balancer -->
+  <g id="internet">
+    <rect x="250" y="90" width="120" height="60" rx="5" fill="#10b981" stroke="#047857" stroke-width="2"/>
+    <text x="310" y="115" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Internet</text>
+    <text x="310" y="130" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="white">Load Balancer</text>
+  </g>
+  
+  <!-- Kubernetes Cluster Box -->
+  <rect x="440" y="60" width="720" height="700" rx="10" fill="#e2e8f0" stroke="#64748b" stroke-width="3" stroke-dasharray="5,5"/>
+  <text x="800" y="85" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#1e293b">
+    Kubernetes Cluster
+  </text>
+  
+  <!-- Ingress Controller -->
+  <g id="ingress">
+    <rect x="480" y="120" width="140" height="60" rx="5" fill="#f59e0b" stroke="#d97706" stroke-width="2"/>
+    <text x="550" y="140" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Ingress</text>
+    <text x="550" y="155" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Controller</text>
+    <text x="550" y="170" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">nginx</text>
+  </g>
+  
+  <!-- Frontend Dashboard -->
+  <g id="frontend">
+    <rect x="480" y="220" width="140" height="80" rx="5" fill="#8b5cf6" stroke="#7c3aed" stroke-width="2"/>
+    <text x="550" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Frontend</text>
+    <text x="550" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Dashboard</text>
+    <text x="550" y="275" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">HTML/CSS/JS</text>
+    <text x="550" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Chart.js</text>
+  </g>
+  
+  <!-- API Service -->
+  <g id="api">
+    <rect x="660" y="220" width="140" height="80" rx="5" fill="#ef4444" stroke="#dc2626" stroke-width="2"/>
+    <text x="730" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Listings API</text>
+    <text x="730" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Service</text>
+    <text x="730" y="275" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Python Flask</text>
+    <text x="730" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">REST API</text>
+  </g>
+  
+  <!-- Analytics Worker -->
+  <g id="worker">
+    <rect x="840" y="220" width="140" height="80" rx="5" fill="#06b6d4" stroke="#0891b2" stroke-width="2"/>
+    <text x="910" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Analytics</text>
+    <text x="910" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Worker</text>
+    <text x="910" y="275" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Python Celery</text>
+    <text x="910" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Background Jobs</text>
+  </g>
+  
+  <!-- Metrics Service -->
+  <g id="metrics">
+    <rect x="1020" y="220" width="120" height="80" rx="5" fill="#84cc16" stroke="#65a30d" stroke-width="2"/>
+    <text x="1080" y="245" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Metrics</text>
+    <text x="1080" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Service</text>
+    <text x="1080" y="275" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Prometheus</text>
+    <text x="1080" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Custom KPIs</text>
+  </g>
+  
+  <!-- Database -->
+  <g id="database">
+    <rect x="480" y="380" width="160" height="80" rx="5" fill="#374151" stroke="#111827" stroke-width="2"/>
+    <text x="560" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">PostgreSQL</text>
+    <text x="560" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Database</text>
+    <text x="560" y="435" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">StatefulSet</text>
+    <text x="560" y="450" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Persistent Storage</text>
+  </g>
+  
+  <!-- Storage -->
+  <g id="storage">
+    <rect x="680" y="380" width="120" height="80" rx="5" fill="#9333ea" stroke="#7c2d12" stroke-width="2"/>
+    <text x="740" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Storage</text>
+    <text x="740" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Volumes</text>
+    <text x="740" y="435" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">PV/PVC</text>
+    <text x="740" y="450" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Storage Classes</text>
+  </g>
+  
+  <!-- Monitoring Stack -->
+  <g id="monitoring">
+    <rect x="840" y="380" width="140" height="80" rx="5" fill="#ec4899" stroke="#be185d" stroke-width="2"/>
+    <text x="910" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Monitoring</text>
+    <text x="910" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Stack</text>
+    <text x="910" y="435" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Prometheus</text>
+    <text x="910" y="450" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Grafana</text>
+  </g>
+  
+  <!-- Security Layer -->
+  <g id="security">
+    <rect x="1020" y="380" width="120" height="80" rx="5" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+    <text x="1080" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Security</text>
+    <text x="1080" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Layer</text>
+    <text x="1080" y="435" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">RBAC/PSP</text>
+    <text x="1080" y="450" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Network Policies</text>
+  </g>
+  
+  <!-- ConfigMaps and Secrets -->
+  <g id="config">
+    <rect x="480" y="500" width="200" height="60" rx="5" fill="#64748b" stroke="#475569" stroke-width="2"/>
+    <text x="580" y="520" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Configuration</text>
+    <text x="580" y="535" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">ConfigMaps & Secrets</text>
+    <text x="580" y="550" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Environment Variables</text>
+  </g>
+  
+  <!-- Jobs and CronJobs -->
+  <g id="jobs">
+    <rect x="720" y="500" width="160" height="60" rx="5" fill="#0891b2" stroke="#0e7490" stroke-width="2"/>
+    <text x="800" y="520" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Jobs & CronJobs</text>
+    <text x="800" y="535" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Batch Processing</text>
+    <text x="800" y="550" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">Backups, Cleanup</text>
+  </g>
+  
+  <!-- Networking -->
+  <g id="networking">
+    <rect x="920" y="500" width="140" height="60" rx="5" fill="#16a34a" stroke="#15803d" stroke-width="2"/>
+    <text x="990" y="520" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Networking</text>
+    <text x="990" y="535" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white">Services & Policies</text>
+    <text x="990" y="550" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white">ClusterIP, LoadBalancer</text>
+  </g>
+  
+  <!-- Node Layer -->
+  <rect x="460" y="600" width="660" height="120" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2"/>
+  <text x="790" y="625" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#1e293b">
+    Node Layer (Kubernetes Worker Nodes)
+  </text>
+  
+  <!-- Node components -->
+  <g id="node1">
+    <rect x="480" y="640" width="100" height="60" rx="5" fill="#fbbf24" stroke="#f59e0b" stroke-width="1"/>
+    <text x="530" y="660" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Node 1</text>
+    <text x="530" y="675" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white">kubelet</text>
+    <text x="530" y="688" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white">kube-proxy</text>
+  </g>
+  
+  <g id="node2">
+    <rect x="600" y="640" width="100" height="60" rx="5" fill="#fbbf24" stroke="#f59e0b" stroke-width="1"/>
+    <text x="650" y="660" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Node 2</text>
+    <text x="650" y="675" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white">kubelet</text>
+    <text x="650" y="688" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white">kube-proxy</text>
+  </g>
+  
+  <g id="node3">
+    <rect x="720" y="640" width="100" height="60" rx="5" fill="#fbbf24" stroke="#f59e0b" stroke-width="1"/>
+    <text x="770" y="660" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Node 3</text>
+    <text x="770" y="675" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white">kubelet</text>
+    <text x="770" y="688" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white">kube-proxy</text>
+  </g>
+  
+  <!-- Control Plane -->
+  <g id="controlplane">
+    <rect x="860" y="640" width="240" height="60" rx="5" fill="#1f2937" stroke="#111827" stroke-width="1"/>
+    <text x="980" y="660" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Control Plane</text>
+    <text x="980" y="675" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white">API Server | Scheduler | Controller Manager</text>
+    <text x="980" y="688" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white">etcd</text>
+  </g>
+  
+  <!-- Arrows and connections -->
+  <!-- User to Internet -->
+  <line x1="125" y1="120" x2="250" y2="120" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Internet to Ingress -->
+  <line x1="370" y1="120" x2="480" y2="150" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Ingress to Frontend -->
+  <line x1="550" y1="180" x2="550" y2="220" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Frontend to API -->
+  <line x1="620" y1="260" x2="660" y2="260" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- API to Database -->
+  <line x1="730" y1="300" x2="560" y2="380" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- API to Worker -->
+  <line x1="800" y1="260" x2="840" y2="260" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Worker to Database -->
+  <line x1="910" y1="300" x2="600" y2="380" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Metrics connections -->
+  <line x1="1020" y1="260" x2="980" y2="260" stroke="#4b5563" stroke-width="1" stroke-dasharray="3,3"/>
+  <line x1="1080" y1="300" x2="910" y2="380" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Storage connections -->
+  <line x1="640" y1="420" x2="680" y2="420" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)"/>
+  
+  <!-- Config to services -->
+  <line x1="580" y1="500" x2="580" y2="460" stroke="#4b5563" stroke-width="1" stroke-dasharray="3,3"/>
+  
+  <!-- Arrow marker definition -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+            refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#4b5563"/>
+    </marker>
+  </defs>
+  
+  <!-- Legend -->
+  <g id="legend" transform="translate(50, 600)">
+    <rect x="0" y="0" width="350" height="180" rx="5" fill="#ffffff" stroke="#e2e8f0" stroke-width="1"/>
+    <text x="175" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#1e293b">
+      Legend
+    </text>
+    
+    <!-- Legend items -->
+    <rect x="10" y="30" width="15" height="15" fill="#3b82f6"/>
+    <text x="30" y="42" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">External User/Client</text>
+    
+    <rect x="10" y="50" width="15" height="15" fill="#8b5cf6"/>
+    <text x="30" y="62" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Frontend Services</text>
+    
+    <rect x="10" y="70" width="15" height="15" fill="#ef4444"/>
+    <text x="30" y="82" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Backend API Services</text>
+    
+    <rect x="10" y="90" width="15" height="15" fill="#374151"/>
+    <text x="30" y="102" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Database Layer</text>
+    
+    <rect x="10" y="110" width="15" height="15" fill="#06b6d4"/>
+    <text x="30" y="122" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Background Workers</text>
+    
+    <rect x="10" y="130" width="15" height="15" fill="#84cc16"/>
+    <text x="30" y="142" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Monitoring & Metrics</text>
+    
+    <rect x="10" y="150" width="15" height="15" fill="#fbbf24"/>
+    <text x="30" y="162" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Kubernetes Nodes</text>
+    
+    <rect x="180" y="30" width="15" height="15" fill="#9333ea"/>
+    <text x="200" y="42" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Storage Systems</text>
+    
+    <rect x="180" y="50" width="15" height="15" fill="#16a34a"/>
+    <text x="200" y="62" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Networking</text>
+    
+    <rect x="180" y="70" width="15" height="15" fill="#dc2626"/>
+    <text x="200" y="82" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Security Layer</text>
+    
+    <rect x="180" y="90" width="15" height="15" fill="#64748b"/>
+    <text x="200" y="102" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Configuration</text>
+    
+    <rect x="180" y="110" width="15" height="15" fill="#0891b2"/>
+    <text x="200" y="122" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Batch Jobs</text>
+    
+    <line x1="180" y1="140" x2="195" y2="140" stroke="#4b5563" stroke-width="2" marker-end="url(#arrowhead)"/>
+    <text x="200" y="144" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Data Flow</text>
+    
+    <line x1="180" y1="155" x2="195" y2="155" stroke="#4b5563" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="200" y="159" font-family="Arial, sans-serif" font-size="10" fill="#1e293b">Configuration Link</text>
+  </g>
+</svg>

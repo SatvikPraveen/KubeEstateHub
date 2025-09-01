@@ -1,0 +1,90 @@
+# Location: `/manifests/security/security-contexts.yaml`
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-contexts
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: security-contexts
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: kubeestatehub
+data:
+  # Standard Security Context for Applications
+  app-security-context.yaml: |
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+      supplementalGroups: [1000]
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      capabilities:
+        drop:
+        - ALL
+
+  # Database Security Context
+  database-security-context.yaml: |
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 999
+      runAsGroup: 999
+      fsGroup: 999
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false
+      runAsNonRoot: true
+      runAsUser: 999
+      runAsGroup: 999
+      capabilities:
+        drop:
+        - ALL
+
+  # Frontend Security Context (nginx)
+  frontend-security-context.yaml: |
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 101
+      runAsGroup: 101
+      fsGroup: 101
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 101
+      runAsGroup: 101
+      capabilities:
+        drop:
+        - ALL
+        add:
+        - NET_BIND_SERVICE
+
+  # Monitoring Security Context
+  monitoring-security-context.yaml: |
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      runAsGroup: 65534
+      fsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 65534
+      runAsGroup: 65534
+      capabilities:
+        drop:
+        - ALL

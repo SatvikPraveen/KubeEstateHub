@@ -1,0 +1,62 @@
+# Location: `/kustomize/overlays/development/kustomization.yaml`
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: kubeestatehub-development
+
+bases:
+  - ../../base
+
+namePrefix: dev-
+nameSuffix: -dev
+
+namespace: kubeestatehub-dev
+
+images:
+  - name: ghcr.io/kubeestatehub/listings-api
+    newTag: develop
+  - name: ghcr.io/kubeestatehub/analytics-worker
+    newTag: develop
+  - name: ghcr.io/kubeestatehub/frontend-dashboard
+    newTag: develop
+  - name: ghcr.io/kubeestatehub/metrics-service
+    newTag: develop
+
+commonLabels:
+  environment: development
+  app.kubernetes.io/instance: development
+
+replicas:
+  - name: listings-api
+    count: 1
+  - name: analytics-worker
+    count: 1
+  - name: frontend-dashboard
+    count: 1
+
+patchesStrategicMerge:
+  - patches/namespace-dev.yaml
+  - patches/resources-small.yaml
+  - patches/ingress-dev.yaml
+  - patches/storage-dev.yaml
+
+configMapGenerator:
+  - name: dev-config
+    literals:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      - ENVIRONMENT=development
+      - ENABLE_PROFILING=true
+
+secretGenerator:
+  - name: dev-secrets
+    literals:
+      - ADMIN_PASSWORD=dev123
+      - JWT_SECRET=dev-jwt-secret
+
+generatorOptions:
+  disableNameSuffixHash: false
+  labels:
+    environment: development

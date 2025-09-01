@@ -1,0 +1,67 @@
+# Location: `/kustomize/overlays/production/kustomization.yaml`
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: kubeestatehub-production
+
+bases:
+  - ../../base
+
+namespace: kubeestatehub
+
+images:
+  - name: ghcr.io/kubeestatehub/listings-api
+    newTag: v1.0.0
+  - name: ghcr.io/kubeestatehub/analytics-worker
+    newTag: v1.0.0
+  - name: ghcr.io/kubeestatehub/frontend-dashboard
+    newTag: v1.0.0
+  - name: ghcr.io/kubeestatehub/metrics-service
+    newTag: v1.0.0
+
+commonLabels:
+  environment: production
+  app.kubernetes.io/instance: production
+
+replicas:
+  - name: listings-api
+    count: 3
+  - name: analytics-worker
+    count: 2
+  - name: frontend-dashboard
+    count: 3
+
+patchesStrategicMerge:
+  - patches/resources-large.yaml
+  - patches/ingress-production.yaml
+  - patches/monitoring-production.yaml
+  - patches/security-production.yaml
+  - patches/backup-production.yaml
+
+configMapGenerator:
+  - name: production-config
+    literals:
+      - DEBUG=false
+      - LOG_LEVEL=warn
+      - ENVIRONMENT=production
+      - ENABLE_PROFILING=false
+      - METRICS_ENABLED=true
+      - BACKUP_ENABLED=true
+
+secretGenerator:
+  - name: production-secrets
+    files:
+      - secrets/jwt-secret.key
+      - secrets/db-password.key
+      - secrets/api-keys.env
+
+generatorOptions:
+  disableNameSuffixHash: true
+  labels:
+    environment: production
+
+transformers:
+  - transformers/resource-limits.yaml
+  - transformers/security-contexts.yaml

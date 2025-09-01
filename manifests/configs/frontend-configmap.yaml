@@ -1,0 +1,97 @@
+# Location: `/manifests/configs/frontend-configmap.yaml`
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-configmap
+  namespace: kubeestatehub
+  labels:
+    app: frontend-dashboard
+    app.kubernetes.io/name: frontend-configmap
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: kubeestatehub
+data:
+  # Application Configuration
+  environment: "production"
+  APP_TITLE: "KubeEstateHub Dashboard"
+  APP_VERSION: "1.0.0"
+
+  # API Configuration
+  api-base-url: "https://api.kubeestatehub.local/api/v1"
+  analytics-endpoint: "https://api.kubeestatehub.local/api/v1/analytics"
+  IMAGE_STORE_URL: "https://minio.kubeestatehub.local"
+
+  # UI Configuration
+  DEFAULT_THEME: "light"
+  ENABLE_DARK_MODE: "true"
+  DEFAULT_LANGUAGE: "en"
+  SUPPORTED_LANGUAGES: "en,es,fr"
+  ITEMS_PER_PAGE: "20"
+  MAX_ITEMS_PER_PAGE: "100"
+
+  # Feature Flags
+  ENABLE_ANALYTICS_DASHBOARD: "true"
+  ENABLE_PROPERTY_MAPPING: "true"
+  ENABLE_ADVANCED_FILTERS: "true"
+  ENABLE_EXPORT_FEATURES: "true"
+  ENABLE_NOTIFICATIONS: "true"
+
+  # Map Configuration
+  DEFAULT_MAP_CENTER_LAT: "40.7128"
+  DEFAULT_MAP_CENTER_LNG: "-74.0060"
+  DEFAULT_MAP_ZOOM: "10"
+  MAP_PROVIDER: "openstreetmap"
+
+  # Cache Configuration
+  BROWSER_CACHE_TTL: "3600"
+  API_CACHE_TTL: "300"
+
+  # Performance
+  ENABLE_SERVICE_WORKER: "true"
+  ENABLE_CODE_SPLITTING: "true"
+  BUNDLE_ANALYZER: "false"
+
+  # Security
+  ENABLE_CSP: "true"
+  CSP_REPORT_URI: "/api/v1/csp-report"
+
+  # Nginx Configuration
+  nginx.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+        root /usr/share/nginx/html;
+        index index.html;
+        
+        # Security Headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        
+        # Gzip Compression
+        gzip on;
+        gzip_vary on;
+        gzip_min_length 1024;
+        gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+        
+        # Cache Static Assets
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+        
+        # API Proxy
+        location /api/ {
+            proxy_pass https://api.kubeestatehub.local;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+        
+        # SPA Fallback
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+    }

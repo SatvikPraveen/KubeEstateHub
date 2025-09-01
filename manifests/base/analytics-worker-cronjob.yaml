@@ -1,0 +1,100 @@
+# Location: `/manifests/base/analytics-worker-cronjob.yaml`
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: analytics-report-generator
+  namespace: kubeestatehub
+  labels:
+    app: analytics-worker
+    app.kubernetes.io/name: analytics-report-generator
+    app.kubernetes.io/component: cronjob
+    app.kubernetes.io/part-of: kubeestatehub
+    tier: backend
+spec:
+  schedule: "0 2 * * *" # Daily at 2 AM
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 5
+  startingDeadlineSeconds: 300
+  suspend: false
+  jobTemplate:
+    metadata:
+      labels:
+        app: analytics-worker
+        job-type: report-generator
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 3600 # 1 hour timeout
+      template:
+        metadata:
+          labels:
+            app: analytics-worker
+            job-type: report-generator
+        spec:
+          serviceAccountName: analytics-worker-sa
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            fsGroup: 1001
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: report-generator
+              image: ghcr.io/kubeestatehub/analytics-worker:latest
+              imagePullPolicy: Always
+              command:
+                - python
+                - /app/generate_reports.py
+              args:
+                - "--report-type=daily"
+                - "--format=json"
+              env:
+                - name: JOB_TYPE
+                  value: "report-generator"
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-secret
+                      key: database-url
+                - name: REPORT_OUTPUT_PATH
+                  value: "/app/reports"
+              envFrom:
+                - configMapRef:
+                    name: analytics-configmap
+                - secretRef:
+                    name: global-env-secret
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                  ephemeral-storage: 2Gi
+                limits:
+                  cpu: 2000m
+                  memory: 2Gi
+                  ephemeral-storage: 5Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1001
+                runAsGroup: 1001
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+                - name: reports
+                  mountPath: /app/reports
+          volumes:
+            - name: tmp
+              emptyDir: {}
+            - name: reports
+              emptyDir:
+                sizeLimit: 10Gi
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/os: linux

@@ -1,0 +1,150 @@
+# Location: `/manifests/base/image-store-deployment.yaml`
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: image-store
+  namespace: kubeestatehub
+  labels:
+    app: image-store
+    app.kubernetes.io/name: image-store
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: kubeestatehub
+    app.kubernetes.io/managed-by: kubectl
+    tier: backend
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: image-store
+  template:
+    metadata:
+      labels:
+        app: image-store
+        app.kubernetes.io/name: image-store
+        app.kubernetes.io/component: storage
+        tier: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: image-store-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1002
+        runAsGroup: 1002
+        fsGroup: 1002
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: image-store
+          image: minio/minio:RELEASE.2023-09-04T19-57-37Z
+          imagePullPolicy: Always
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - minio server /data --console-address ":9001" --address ":9000"
+          ports:
+            - containerPort: 9000
+              name: api
+              protocol: TCP
+            - containerPort: 9001
+              name: console
+              protocol: TCP
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: image-store-secret
+                  key: root-user
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: image-store-secret
+                  key: root-password
+            - name: MINIO_BROWSER_REDIRECT_URL
+              value: "https://minio-console.kubeestatehub.local"
+            - name: MINIO_SERVER_URL
+              value: "https://minio.kubeestatehub.local"
+            - name: MINIO_PROMETHEUS_AUTH_TYPE
+              value: "public"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+              ephemeral-storage: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+              ephemeral-storage: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1002
+            runAsGroup: 1002
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 20
+          volumeMounts:
+            - name: image-data
+              mountPath: /data
+      volumes:
+        - name: image-data
+          persistentVolumeClaim:
+            claimName: image-store-pvc
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      nodeSelector:
+        kubernetes.io/os: linux
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - image-store
+                topologyKey: kubernetes.io/hostname

@@ -1,0 +1,161 @@
+# File location: tests/k8s-lint-tests/kubeval.yaml
+# Kubeval configuration and test job for validating Kubernetes manifests
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubeval-config
+  namespace: kubeestatehub
+data:
+  kubeval.yaml: |
+    kubernetes_version: "1.28.0"
+    schema_location: "https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master"
+    strict: true
+    ignore_missing_schemas: false
+    additional_schema_locations:
+      - "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main"
+    exit_on_error: true
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kubeval-validation
+  namespace: kubeestatehub
+  labels:
+    app: kubeval
+    component: validation
+spec:
+  template:
+    metadata:
+      labels:
+        app: kubeval
+        component: validation
+    spec:
+      containers:
+        - name: kubeval
+          image: instrumenta/kubeval:latest
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              echo "Starting Kubeval validation..."
+
+              # Validate base manifests
+              echo "Validating base manifests..."
+              kubeval /manifests/base/*.yaml \
+                --kubernetes-version 1.28.0 \
+                --strict \
+                --ignore-missing-schemas=false
+
+              # Validate storage manifests
+              echo "Validating storage manifests..."
+              kubeval /manifests/storage/*.yaml \
+                --kubernetes-version 1.28.0 \
+                --strict
+
+              # Validate config manifests
+              echo "Validating config manifests..."
+              kubeval /manifests/configs/*.yaml \
+                --kubernetes-version 1.28.0 \
+                --strict
+
+              # Validate network manifests
+              echo "Validating network manifests..."
+              kubeval /manifests/network/*.yaml \
+                --kubernetes-version 1.28.0 \
+                --strict
+
+              # Validate security manifests
+              echo "Validating security manifests..."
+              kubeval /manifests/security/*.yaml \
+                --kubernetes-version 1.28.0 \
+                --strict
+
+              # Validate monitoring manifests
+              echo "Validating monitoring manifests..."
+              kubeval /manifests/monitoring/*.yaml \
+                --kubernetes-version 1.28.0 \
+                --strict
+
+              # Validate autoscaling manifests
+              echo "Validating autoscaling manifests..."
+              kubeval /manifests/autoscaling/*.yaml \
+                --kubernetes-version 1.28.0 \
+                --strict
+
+              echo "Kubeval validation completed successfully!"
+
+          volumeMounts:
+            - name: manifests
+              mountPath: /manifests
+              readOnly: true
+
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+
+      volumes:
+        - name: manifests
+          projected:
+            sources:
+              - configMap:
+                  name: base-manifests
+              - configMap:
+                  name: storage-manifests
+              - configMap:
+                  name: config-manifests
+              - configMap:
+                  name: network-manifests
+              - configMap:
+                  name: security-manifests
+              - configMap:
+                  name: monitoring-manifests
+              - configMap:
+                  name: autoscaling-manifests
+
+      restartPolicy: Never
+      serviceAccountName: kubeval-sa
+
+  backoffLimit: 3
+  activeDeadlineSeconds: 300
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubeval-sa
+  namespace: kubeestatehub
+  labels:
+    app: kubeval
+    component: validation
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: kubeestatehub
+  name: kubeval-role
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubeval-binding
+  namespace: kubeestatehub
+subjects:
+  - kind: ServiceAccount
+    name: kubeval-sa
+    namespace: kubeestatehub
+roleRef:
+  kind: Role
+  name: kubeval-role
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,12 @@
+# Location: `/helm-charts/kubeestatehub/charts/.gitkeep`
+
+# This directory will contain dependency charts when running:
+# helm dependency update
+#
+# Dependencies defined in Chart.yaml:
+# - postgresql (from Bitnami)
+# - redis (from Bitnami) 
+# - prometheus (from Prometheus Community)
+# - grafana (from Grafana)
+#
+# Run 'helm dependency update' to download these charts into this directory.

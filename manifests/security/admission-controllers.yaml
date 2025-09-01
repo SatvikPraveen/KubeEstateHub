@@ -1,0 +1,152 @@
+# Location: `/manifests/security/admission-controllers.yaml`
+
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionWebhook
+metadata:
+  name: kubeestatehub-security-validator
+  labels:
+    app.kubernetes.io/name: kubeestatehub-security-validator
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/part-of: kubeestatehub
+webhooks:
+  - name: security-policy.kubeestatehub.io
+    clientConfig:
+      service:
+        name: kubeestatehub-admission-webhook
+        namespace: kubeestatehub-system
+        path: "/validate-security"
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        resources: ["deployments", "statefulsets", "daemonsets"]
+    admissionReviewVersions: ["v1", "v1beta1"]
+    sideEffects: None
+    failurePolicy: Fail
+    namespaceSelector:
+      matchLabels:
+        security-validation: enabled
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingAdmissionWebhook
+metadata:
+  name: kubeestatehub-security-mutator
+  labels:
+    app.kubernetes.io/name: kubeestatehub-security-mutator
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/part-of: kubeestatehub
+webhooks:
+  - name: security-mutator.kubeestatehub.io
+    clientConfig:
+      service:
+        name: kubeestatehub-admission-webhook
+        namespace: kubeestatehub-system
+        path: "/mutate-security"
+    rules:
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+      - operations: ["CREATE", "UPDATE"]
+        apiGroups: ["apps"]
+        apiVersions: ["v1"]
+        resources: ["deployments", "statefulsets", "daemonsets"]
+    admissionReviewVersions: ["v1", "v1beta1"]
+    sideEffects: None
+    failurePolicy: Fail
+    namespaceSelector:
+      matchLabels:
+        security-mutation: enabled
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubeestatehub-admission-webhook
+  namespace: kubeestatehub-system
+  labels:
+    app.kubernetes.io/name: kubeestatehub-admission-webhook
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kubeestatehub-admission-webhook
+  template:
+    metadata:
+      labels:
+        app: kubeestatehub-admission-webhook
+    spec:
+      serviceAccountName: kubeestatehub-admission-webhook
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: admission-webhook
+          image: ghcr.io/kubeestatehub/admission-webhook:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8443
+              name: webhook
+          env:
+            - name: TLS_CERT_FILE
+              value: /etc/certs/tls.crt
+            - name: TLS_PRIVATE_KEY_FILE
+              value: /etc/certs/tls.key
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: certs
+              mountPath: /etc/certs
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: certs
+          secret:
+            secretName: kubeestatehub-admission-webhook-certs
+        - name: tmp
+          emptyDir: {}
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubeestatehub-admission-webhook
+  namespace: kubeestatehub-system
+  labels:
+    app.kubernetes.io/name: kubeestatehub-admission-webhook
+    app.kubernetes.io/component: admission-controller
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  type: ClusterIP
+  ports:
+    - port: 443
+      targetPort: 8443
+      protocol: TCP
+      name: webhook
+  selector:
+    app: kubeestatehub-admission-webhook

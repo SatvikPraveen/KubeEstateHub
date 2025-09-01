@@ -1,0 +1,317 @@
+# Location: `/manifests/daemonsets/security-scanner-daemonset.yaml`
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: security-scanner
+  namespace: kubeestatehub
+  labels:
+    app: security-scanner
+    app.kubernetes.io/name: security-scanner
+    app.kubernetes.io/version: "0.47.0"
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: kubeestatehub
+    app.kubernetes.io/managed-by: kubectl
+spec:
+  selector:
+    matchLabels:
+      app: security-scanner
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        app: security-scanner
+        app.kubernetes.io/name: security-scanner
+        app.kubernetes.io/component: security
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: security-scanner-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      hostNetwork: false
+      hostPID: true
+      containers:
+        - name: trivy-scanner
+          image: aquasec/trivy:0.47.0
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -c
+            - |
+              while true; do
+                echo "Starting security scan at $(date)"
+                
+                # Scan running containers
+                for container in $(crictl ps --quiet); do
+                  image=$(crictl inspect $container | jq -r '.status.image.image')
+                  echo "Scanning container image: $image"
+                  trivy image --format json --output /tmp/scan-results/$container.json $image || true
+                done
+                
+                # Scan filesystem
+                trivy fs --format json --output /tmp/scan-results/filesystem.json /host/root || true
+                
+                echo "Security scan completed at $(date)"
+                sleep 3600  # Run every hour
+              done
+          ports:
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: TRIVY_CACHE_DIR
+              value: /tmp/trivy-cache
+            - name: TRIVY_DB_REPOSITORY
+              value: "ghcr.io/aquasecurity/trivy-db"
+            - name: TRIVY_JAVA_DB_REPOSITORY
+              value: "ghcr.io/aquasecurity/trivy-java-db"
+            - name: TRIVY_LISTEN
+              value: "0.0.0.0:8080"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+              ephemeral-storage: 2Gi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+              ephemeral-storage: 5Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            capabilities:
+              drop:
+                - ALL
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: host-root
+              mountPath: /host/root
+              readOnly: true
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+              readOnly: true
+            - name: containerd-sock
+              mountPath: /var/run/containerd/containerd.sock
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            - name: scan-results
+              mountPath: /tmp/scan-results
+            - name: trivy-cache
+              mountPath: /tmp/trivy-cache
+        - name: falco
+          image: falcosecurity/falco-no-driver:0.36.2
+          imagePullPolicy: Always
+          args:
+            - /usr/bin/falco
+            - --cri=/var/run/containerd/containerd.sock
+            - --k8s-api=https://kubernetes.default.svc.cluster.local
+            - --k8s-api-cert=/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+            - --k8s-api-token-file=/var/run/secrets/kubernetes.io/serviceaccount/token
+          ports:
+            - containerPort: 8765
+              name: grpc
+              protocol: TCP
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: falco-config
+              mountPath: /etc/falco
+              readOnly: true
+            - name: host-proc
+              mountPath: /host/proc
+              readOnly: true
+            - name: host-dev
+              mountPath: /host/dev
+              readOnly: true
+            - name: containerd-sock
+              mountPath: /var/run/containerd/containerd.sock
+              readOnly: true
+      volumes:
+        - name: host-root
+          hostPath:
+            path: /
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: containerd-sock
+          hostPath:
+            path: /var/run/containerd/containerd.sock
+            type: Socket
+        - name: host-proc
+          hostPath:
+            path: /proc
+        - name: host-dev
+          hostPath:
+            path: /dev
+        - name: tmp
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: scan-results
+          emptyDir:
+            sizeLimit: 1Gi
+        - name: trivy-cache
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: falco-config
+          configMap:
+            name: falco-config
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+        - key: node-role.kubernetes.io/master
+          effect: NoSchedule
+        - operator: Exists
+          effect: NoExecute
+        - operator: Exists
+          effect: NoSchedule
+      nodeSelector:
+        kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: security-scanner-sa
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: security-scanner-sa
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: kubeestatehub
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: security-scanner
+  labels:
+    app.kubernetes.io/name: security-scanner
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: kubeestatehub
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "daemonsets", "statefulsets"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: security-scanner
+  labels:
+    app.kubernetes.io/name: security-scanner
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: kubeestatehub
+roleRef:
+  kind: ClusterRole
+  name: security-scanner
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+  - kind: ServiceAccount
+    name: security-scanner-sa
+    namespace: kubeestatehub
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-config
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: falco-config
+    app.kubernetes.io/component: security
+    app.kubernetes.io/part-of: kubeestatehub
+data:
+  falco.yaml: |
+    rules_file:
+      - /etc/falco/falco_rules.yaml
+      - /etc/falco/k8s_audit_rules.yaml
+      - /etc/falco/rules.d
+
+    time_format_iso_8601: true
+    json_output: true
+    json_include_output_property: true
+    json_include_tags_property: true
+
+    priority: debug
+    buffered_outputs: false
+
+    outputs:
+      rate: 1
+      max_burst: 1000
+
+    syslog_output:
+      enabled: false
+
+    file_output:
+      enabled: false
+
+    stdout_output:
+      enabled: true
+
+    webserver:
+      enabled: true
+      listen_port: 8765
+      k8s_healthz_endpoint: /healthz
+
+    grpc:
+      enabled: true
+      bind_address: "0.0.0.0:5060"
+      threadiness: 8
+
+    grpc_output:
+      enabled: false

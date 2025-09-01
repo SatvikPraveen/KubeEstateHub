@@ -1,0 +1,89 @@
+# Location: `/manifests/network/dns-configmap.yaml`
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: coredns-custom
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: coredns-custom
+    app.kubernetes.io/component: dns
+    app.kubernetes.io/part-of: kubeestatehub
+data:
+  kubeestatehub.server: |
+    kubeestatehub.local:53 {
+        errors
+        health {
+            lameduck 5s
+        }
+        ready
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+            pods insecure
+            fallthrough in-addr.arpa ip6.arpa
+            ttl 30
+        }
+        hosts {
+            192.168.1.100 kubeestatehub.local
+            192.168.1.101 api.kubeestatehub.local
+            192.168.1.102 minio.kubeestatehub.local
+            192.168.1.103 minio-console.kubeestatehub.local
+            192.168.1.104 grafana.kubeestatehub.local
+            192.168.1.105 prometheus.kubeestatehub.local
+            fallthrough
+        }
+        prometheus :9153
+        forward . /etc/resolv.conf {
+            max_concurrent 1000
+        }
+        cache 30
+        loop
+        reload
+        loadbalance
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubeestatehub-dns-config
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: kubeestatehub-dns-config
+    app.kubernetes.io/component: dns
+    app.kubernetes.io/part-of: kubeestatehub
+data:
+  # Custom DNS entries for the application
+  hosts: |
+    # KubeEstateHub Services
+    postgresql-db.kubeestatehub.svc.cluster.local postgresql-db
+    listings-api.kubeestatehub.svc.cluster.local listings-api
+    frontend-dashboard.kubeestatehub.svc.cluster.local frontend-dashboard
+    image-store.kubeestatehub.svc.cluster.local image-store
+
+    # External Services
+    192.168.1.200 external-mls-api.company.com
+    192.168.1.201 external-geocoding.company.com
+    192.168.1.202 external-valuation.company.com
+
+  # DNS resolver configuration
+  resolv.conf: |
+    search kubeestatehub.svc.cluster.local svc.cluster.local cluster.local
+    nameserver 10.96.0.10
+    options ndots:5
+    options timeout:2
+    options attempts:2
+
+  # DNS policy settings
+  dns-policy: |
+    {
+      "policy": "ClusterFirstWithHostNet",
+      "dnsConfig": {
+        "nameservers": ["10.96.0.10", "8.8.8.8", "8.8.4.4"],
+        "searches": ["kubeestatehub.svc.cluster.local", "svc.cluster.local", "cluster.local"],
+        "options": [
+          {"name": "ndots", "value": "5"},
+          {"name": "edns0"},
+          {"name": "timeout", "value": "2"},
+          {"name": "attempts", "value": "2"}
+        ]
+      }
+    }

@@ -1,0 +1,35 @@
+# Location: `/manifests/storage/db-persistent-volume.yaml`
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: postgresql-pv
+  labels:
+    app: postgresql-db
+    app.kubernetes.io/name: postgresql-pv
+    app.kubernetes.io/component: storage
+    app.kubernetes.io/part-of: kubeestatehub
+    type: database
+    storage-tier: fast
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: fast-ssd
+  volumeMode: Filesystem
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/os
+              operator: In
+              values:
+                - linux
+            - key: node-role.kubernetes.io/database
+              operator: Exists
+  awsElasticBlockStore:
+    volumeID: vol-0123456789abcdef0
+    fsType: ext4
+    encrypted: true

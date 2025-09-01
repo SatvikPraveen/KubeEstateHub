@@ -1,0 +1,91 @@
+# Location: `/helm-charts/kubeestatehub/templates/prometheus.yaml`
+
+{{- if and .Values.monitoring.enabled .Values.monitoring.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-servicemonitor
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+spec:
+  selector:
+    matchLabels:
+      {{- include "kubeestatehub.selectorLabels" . | nindent 6 }}
+  endpoints:
+  - port: metrics
+    interval: {{ .Values.monitoring.serviceMonitor.interval }}
+    path: /metrics
+    scheme: http
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+---
+{{- end }}
+
+{{- if and .Values.monitoring.enabled .Values.monitoring.prometheus.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-alerts
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+spec:
+  groups:
+  - name: kubeestatehub.rules
+    rules:
+    - alert: KubeEstateHubAPIDown
+      expr: up{job=~".*listings-api.*"} == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "KubeEstateHub API is down"
+        description: "KubeEstateHub Listings API has been down for more than 5 minutes."
+    
+    - alert: KubeEstateHubHighErrorRate
+      expr: |
+        (
+          rate(http_requests_total{job=~".*listings-api.*", status=~"5.."}[5m]) /
+          rate(http_requests_total{job=~".*listings-api.*"}[5m])
+        ) * 100 > 5
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High error rate in KubeEstateHub API"
+        description: "Error rate is {{ $value }}% for the last 10 minutes."
+    
+    - alert: KubeEstateHubHighResponseTime
+      expr: |
+        histogram_quantile(0.95,
+          rate(http_request_duration_seconds_bucket{job=~".*listings-api.*"}[5m])
+        ) > 2
+      for: 15m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High response time in KubeEstateHub API"
+        description: "95th percentile response time is {{ $value }}s for the last 15 minutes."
+    
+    - alert: KubeEstateHubDatabaseConnectionHigh
+      expr: pg_stat_database_numbackends{datname="kubeestatehub"} > 180
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High database connections"
+        description: "Database has {{ $value }} active connections, approaching the limit."
+    
+    - alert: KubeEstateHubPodCrashLooping
+      expr: |
+        increase(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}"}[1h]) > 5
+      for: 15m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Pod is crash looping"
+        description: "Pod {{ $labels.pod }} is crash looping in namespace {{ $labels.namespace }}."
+---
+{{- end }}

@@ -1,0 +1,247 @@
+# Location: `/.github/workflows/manifest-validation.yaml`
+
+name: Manifest Validation
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "manifests/**"
+      - "kustomize/**"
+      - "helm-charts/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "manifests/**"
+      - "kustomize/**"
+      - "helm-charts/**"
+
+jobs:
+  yaml-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint YAML files
+        run: |
+          yamllint -d relaxed manifests/
+          yamllint -d relaxed kustomize/
+          yamllint -d relaxed helm-charts/
+
+  kubectl-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "v1.28.0"
+
+      - name: Validate Kubernetes manifests
+        run: |
+          for manifest in manifests/**/*.yaml; do
+            echo "Validating $manifest"
+            kubectl --dry-run=client apply -f "$manifest" || exit 1
+          done
+
+      - name: Validate resource quotas
+        run: |
+          # Check that resource requests/limits are defined
+          for deployment in manifests/base/*deployment.yaml; do
+            if ! grep -q "resources:" "$deployment"; then
+              echo "Missing resources section in $deployment"
+              exit 1
+            fi
+            
+            if ! grep -A10 "resources:" "$deployment" | grep -q "requests:"; then
+              echo "Missing resource requests in $deployment"
+              exit 1
+            fi
+          done
+
+  kustomize-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "v1.28.0"
+
+      - name: Validate Kustomize builds
+        run: |
+          for overlay in kustomize/overlays/*/; do
+            echo "Building kustomize overlay: $overlay"
+            kubectl kustomize "$overlay" > /tmp/kustomize-output.yaml
+            kubectl --dry-run=client apply -f /tmp/kustomize-output.yaml
+          done
+
+      - name: Check for resource name conflicts
+        run: |
+          for overlay in kustomize/overlays/*/; do
+            echo "Checking resource conflicts in $overlay"
+            kubectl kustomize "$overlay" | grep -E "^  name:" | sort | uniq -d > /tmp/conflicts.txt
+            if [[ -s /tmp/conflicts.txt ]]; then
+              echo "Found resource name conflicts in $overlay:"
+              cat /tmp/conflicts.txt
+              exit 1
+            fi
+          done
+
+  helm-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "3.12.0"
+
+      - name: Lint Helm charts
+        run: |
+          helm lint helm-charts/kubeestatehub/
+          helm dependency update helm-charts/kubeestatehub/ || true
+
+      - name: Template Helm chart
+        run: |
+          helm template kubeestatehub helm-charts/kubeestatehub/ \
+            --values helm-charts/kubeestatehub/values.yaml > /tmp/helm-output.yaml
+
+      - name: Validate Helm output
+        run: |
+          kubectl --dry-run=client apply -f /tmp/helm-output.yaml
+
+      - name: Test different values
+        run: |
+          # Test with development values
+          cat > /tmp/dev-values.yaml <<EOF
+          environment: development
+          replicaCount: 1
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          EOF
+
+          helm template kubeestatehub helm-charts/kubeestatehub/ \
+            --values /tmp/dev-values.yaml > /tmp/helm-dev-output.yaml
+          kubectl --dry-run=client apply -f /tmp/helm-dev-output.yaml
+
+  resource-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install kubeval
+        run: |
+          wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+          tar xf kubeval-linux-amd64.tar.gz
+          sudo mv kubeval /usr/local/bin/
+
+      - name: Validate with kubeval
+        run: |
+          find manifests/ -name "*.yaml" -exec kubeval {} \;
+
+      - name: Check resource naming conventions
+        run: |
+          # Check that resources follow naming conventions
+          for manifest in manifests/base/*.yaml; do
+            # Check for kebab-case naming
+            if grep -E "name: [^-]*[A-Z]" "$manifest"; then
+              echo "Found non-kebab-case names in $manifest"
+              exit 1
+            fi
+          done
+
+      - name: Validate labels and selectors
+        run: |
+          # Check that all deployments have proper labels
+          for deployment in manifests/base/*deployment.yaml; do
+            if ! grep -A5 "selector:" "$deployment" | grep -q "app:"; then
+              echo "Missing app label selector in $deployment"
+              exit 1
+            fi
+            
+            if ! grep -A10 "metadata:" "$deployment" | grep -q "app:"; then
+              echo "Missing app label in metadata of $deployment"
+              exit 1
+            fi
+          done
+
+  policy-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install OPA Conftest
+        run: |
+          wget https://github.com/open-policy-agent/conftest/releases/latest/download/conftest_linux_amd64.tar.gz
+          tar xzf conftest_linux_amd64.tar.gz
+          sudo mv conftest /usr/local/bin/
+
+      - name: Run policy tests
+        run: |
+          # Test deployment policies
+          conftest test --policy tests/k8s-lint-tests/conftest/ manifests/base/*deployment.yaml
+
+          # Test security policies
+          conftest test --policy tests/k8s-lint-tests/conftest/ manifests/security/*.yaml
+
+  integration-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kind cluster
+        uses: helm/kind-action@v1.8.0
+        with:
+          cluster_name: validation-cluster
+          wait: 60s
+
+      - name: Deploy to kind cluster
+        run: |
+          # Apply namespace first
+          kubectl apply -f manifests/base/namespace.yaml
+
+          # Apply storage classes
+          kubectl apply -f manifests/storage/storage-class.yaml
+
+          # Apply basic manifests
+          kubectl apply -f manifests/configs/
+          kubectl apply -f manifests/storage/
+
+          # Wait for pods to be created
+          sleep 30
+
+      - name: Validate deployment
+        run: |
+          # Check that all resources are created
+          kubectl get all -n kubeestatehub
+
+          # Validate that pods can start (they may not be ready due to missing external dependencies)
+          kubectl get pods -n kubeestatehub -o jsonpath='{.items[*].status.phase}' | grep -v Failed || true

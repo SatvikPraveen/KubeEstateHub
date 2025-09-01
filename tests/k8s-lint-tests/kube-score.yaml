@@ -1,0 +1,88 @@
+# File location: tests/k8s-lint-tests/kube-score.yaml
+# Kube-score configuration for testing Kubernetes manifests
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-score-config
+  namespace: kubeestatehub
+data:
+  config.yaml: |
+    checks:
+      container-security-context-user-group-id:
+        enabled: true
+      container-security-context-privileged:
+        enabled: true
+      container-security-context-readonlyrootfilesystem:
+        enabled: true
+      container-resources:
+        enabled: true
+      container-image-tag:
+        enabled: true
+      container-image-pull-policy:
+        enabled: true
+      pod-networkpolicy:
+        enabled: true
+      pod-probes:
+        enabled: true
+      service-targets-pod:
+        enabled: true
+      stable-version:
+        enabled: true
+      disallowed-api-versions:
+        enabled: true
+      required-labels:
+        enabled: true
+        labels:
+          - app
+          - version
+          - component
+      required-annotations:
+        enabled: true
+        annotations:
+          - prometheus.io/scrape
+
+    ignore:
+      - SCORE_CONTAINER_SECURITY_CONTEXT_USER_GROUP_ID
+      - SCORE_CONTAINER_SECURITY_CONTEXT_READONLYROOTFILESYSTEM
+
+    thresholds:
+      warning: 5
+      critical: 10
+
+---
+# Test script for running kube-score
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kube-score-test
+  namespace: kubeestatehub
+spec:
+  template:
+    spec:
+      containers:
+        - name: kube-score
+          image: zegl/kube-score:v1.16.1
+          command: ["/bin/sh"]
+          args:
+            - -c
+            - |
+              echo "Running kube-score tests..."
+              kube-score score /manifests/base/*.yaml \
+                --config /config/config.yaml \
+                --output-format ci \
+                --exit-one-on-warning
+          volumeMounts:
+            - name: manifests
+              mountPath: /manifests
+            - name: config
+              mountPath: /config
+      volumes:
+        - name: manifests
+          configMap:
+            name: test-manifests
+        - name: config
+          configMap:
+            name: kube-score-config
+      restartPolicy: Never
+  backoffLimit: 3

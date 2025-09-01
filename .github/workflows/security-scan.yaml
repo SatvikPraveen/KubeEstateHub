@@ -1,0 +1,196 @@
+# Location: `/.github/workflows/security-scan.yaml`
+
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *" # Daily at 6 AM UTC
+
+jobs:
+  container-scan:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          [listings-api, analytics-worker, frontend-dashboard, metrics-service]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ matrix.service }}:scan ./src/${{ matrix.service }}/
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "${{ matrix.service }}:scan"
+          format: "sarif"
+          output: "trivy-results-${{ matrix.service }}.sarif"
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-results-${{ matrix.service }}.sarif"
+
+  manifest-security-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Conftest
+        run: |
+          wget https://github.com/open-policy-agent/conftest/releases/latest/download/conftest_linux_amd64.tar.gz
+          tar xzf conftest_linux_amd64.tar.gz
+          sudo mv conftest /usr/local/bin/
+
+      - name: Run security policy tests
+        run: |
+          conftest test --policy tests/k8s-lint-tests/conftest/ manifests/base/*.yaml
+          conftest test --policy tests/k8s-lint-tests/conftest/ manifests/security/*.yaml
+
+      - name: Install kube-score
+        run: |
+          wget https://github.com/zegl/kube-score/releases/latest/download/kube-score_linux_amd64
+          chmod +x kube-score_linux_amd64
+          sudo mv kube-score_linux_amd64 /usr/local/bin/kube-score
+
+      - name: Run kube-score security analysis
+        run: |
+          kube-score score manifests/base/*.yaml --output-format ci
+          kube-score score manifests/security/*.yaml --output-format ci
+
+  rbac-analysis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "v1.28.0"
+
+      - name: Validate RBAC configurations
+        run: |
+          # Check for overly permissive permissions
+          grep -r "resources.*\*" manifests/configs/rbac-*.yaml && echo "Found wildcard resources" && exit 1 || true
+          grep -r "verbs.*\*" manifests/configs/rbac-*.yaml && echo "Found wildcard verbs" && exit 1 || true
+
+          # Validate RBAC manifests
+          kubectl auth can-i --list --as=system:serviceaccount:kubeestatehub:listings-api-sa --dry-run
+
+  secrets-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run GitLeaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Scan for hard-coded secrets
+        run: |
+          # Check for potential secrets in manifests
+          find manifests/ -name "*.yaml" -exec grep -l "password\|secret\|key\|token" {} \;
+
+          # Ensure secrets are properly templated
+          if grep -r "password:\s*[^{]" manifests/; then
+            echo "Found hard-coded passwords in manifests"
+            exit 1
+          fi
+
+  network-policy-validation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate NetworkPolicy coverage
+        run: |
+          # Ensure all applications have NetworkPolicies
+          apps=$(grep -r "app:" manifests/base/ | grep -o 'app: [^"]*' | cut -d' ' -f2 | sort -u)
+
+          for app in $apps; do
+            if ! grep -r "app: $app" manifests/network/network-policy-*.yaml; then
+              echo "Missing NetworkPolicy for app: $app"
+              exit 1
+            fi
+          done
+
+  pod-security-standards:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate Pod Security Standards
+        run: |
+          # Check that all deployments have security contexts
+          for manifest in manifests/base/*deployment.yaml; do
+            if ! grep -q "securityContext" "$manifest"; then
+              echo "Missing securityContext in $manifest"
+              exit 1
+            fi
+          done
+
+          # Validate non-root users
+          for manifest in manifests/base/*deployment.yaml; do
+            if grep -q "runAsUser: 0" "$manifest"; then
+              echo "Found root user in $manifest"
+              exit 1
+            fi
+          done
+
+  supply-chain-security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./src
+          format: spdx-json
+
+      - name: Scan SBOM with Grype
+        uses: anchore/scan-action@v3
+        with:
+          sbom: ./sbom.spdx.json
+          fail-build: false
+
+      - name: Validate base images
+        run: |
+          # Check for secure base images
+          for dockerfile in $(find src/ -name "Dockerfile"); do
+            base_image=$(head -1 "$dockerfile" | cut -d' ' -f2)
+            echo "Checking base image: $base_image"
+            
+            # Ensure not using latest tags
+            if [[ "$base_image" =~ :latest$ ]]; then
+              echo "Using 'latest' tag in $dockerfile"
+              exit 1
+            fi
+            
+            # Prefer distroless or minimal images
+            if [[ ! "$base_image" =~ (distroless|alpine|scratch) ]]; then
+              echo "Consider using distroless/alpine base image in $dockerfile"
+            fi
+          done

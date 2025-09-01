@@ -1,0 +1,93 @@
+# Location: `/manifests/autoscaling/vpa-listings-api.yaml`
+
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: listings-api-vpa
+  namespace: kubeestatehub
+  labels:
+    app: listings-api
+    app.kubernetes.io/name: listings-api-vpa
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: listings-api
+  updatePolicy:
+    updateMode: "Auto"
+    minReplicas: 3
+  resourcePolicy:
+    containerPolicies:
+      - containerName: listings-api
+        mode: Auto
+        minAllowed:
+          cpu: 100m
+          memory: 128Mi
+        maxAllowed:
+          cpu: 2000m
+          memory: 2Gi
+        controlledResources: ["cpu", "memory"]
+        controlledValues: RequestsAndLimits
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: analytics-worker-vpa
+  namespace: kubeestatehub
+  labels:
+    app: analytics-worker
+    app.kubernetes.io/name: analytics-worker-vpa
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: analytics-worker
+  updatePolicy:
+    updateMode: "Auto"
+    minReplicas: 2
+  resourcePolicy:
+    containerPolicies:
+      - containerName: analytics-worker
+        mode: Auto
+        minAllowed:
+          cpu: 200m
+          memory: 256Mi
+        maxAllowed:
+          cpu: 4000m
+          memory: 4Gi
+        controlledResources: ["cpu", "memory"]
+        controlledValues: RequestsAndLimits
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: frontend-dashboard-vpa
+  namespace: kubeestatehub
+  labels:
+    app: frontend-dashboard
+    app.kubernetes.io/name: frontend-dashboard-vpa
+    app.kubernetes.io/component: autoscaling
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend-dashboard
+  updatePolicy:
+    updateMode: "Off" # Recommendation mode only for frontend
+  resourcePolicy:
+    containerPolicies:
+      - containerName: frontend-dashboard
+        mode: Auto
+        minAllowed:
+          cpu: 50m
+          memory: 64Mi
+        maxAllowed:
+          cpu: 500m
+          memory: 512Mi
+        controlledResources: ["cpu", "memory"]
+        controlledValues: RequestsAndLimits

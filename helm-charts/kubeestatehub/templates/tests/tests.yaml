@@ -1,0 +1,171 @@
+# Location: `/helm-charts/kubeestatehub/templates/tests/tests.yaml`
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "kubeestatehub.fullname" . }}-test-api"
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: api-test
+    image: curlimages/curl:8.4.0
+    imagePullPolicy: IfNotPresent
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      echo "Testing Listings API health endpoint..."
+      curl -f http://{{ include "kubeestatehub.fullname" . }}-listings-api/health
+      
+      echo "Testing Listings API ready endpoint..."  
+      curl -f http://{{ include "kubeestatehub.fullname" . }}-listings-api/ready
+      
+      echo "Testing Listings API listings endpoint..."
+      curl -f http://{{ include "kubeestatehub.fullname" . }}-listings-api/api/v1/listings?page=1&per_page=5
+      
+      echo "All API tests passed!"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      capabilities:
+        drop:
+        - ALL
+    volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+  volumes:
+  - name: tmp
+    emptyDir: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "kubeestatehub.fullname" . }}-test-frontend"
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: frontend-test
+    image: curlimages/curl:8.4.0
+    imagePullPolicy: IfNotPresent
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      echo "Testing Frontend Dashboard..."
+      curl -f -I http://{{ include "kubeestatehub.fullname" . }}-frontend-dashboard/
+      
+      echo "Frontend test passed!"
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 1000
+      runAsGroup: 1000
+      capabilities:
+        drop:
+        - ALL
+    volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+  volumes:
+  - name: tmp
+    emptyDir: {}
+---
+{{- if .Values.postgresql.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ include "kubeestatehub.fullname" . }}-test-db"
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "3"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    runAsGroup: 999
+    fsGroup: 999
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+  - name: db-test
+    image: postgres:15.4-alpine
+    imagePullPolicy: IfNotPresent
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      echo "Testing PostgreSQL connection..."
+      PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT version();"
+      
+      echo "Testing listings table exists..."
+      PGPASSWORD=$POSTGRES_PASSWORD psql -h $POSTGRES_HOST -U $POSTGRES_USER -d $POSTGRES_DB -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'listings';"
+      
+      echo "Database test passed!"
+    env:
+    - name: POSTGRES_HOST
+      value: "{{ include "kubeestatehub.fullname" . }}-postgresql"
+    - name: POSTGRES_DB
+      value: {{ .Values.global.postgresql.auth.database }}
+    - name: POSTGRES_USER
+      value: {{ .Values.global.postgresql.auth.username }}
+    - name: POSTGRES_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: {{ include "kubeestatehub.fullname" . }}-db-secret
+          key: password
+    securityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      runAsNonRoot: true
+      runAsUser: 999
+      runAsGroup: 999
+      capabilities:
+        drop:
+        - ALL
+    volumeMounts:
+    - name: tmp
+      mountPath: /tmp
+  volumes:
+  - name: tmp
+    emptyDir: {}
+{{- end }}

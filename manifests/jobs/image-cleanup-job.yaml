@@ -1,0 +1,209 @@
+# Location: `/manifests/jobs/image-cleanup-job.yaml`
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: image-cleanup
+  namespace: kubeestatehub
+  labels:
+    app: image-cleanup
+    app.kubernetes.io/name: image-cleanup
+    app.kubernetes.io/component: maintenance
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  schedule: "0 3 * * 0" # Weekly on Sunday at 3 AM
+  timeZone: "UTC"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 2
+  startingDeadlineSeconds: 300
+  suspend: false
+  jobTemplate:
+    metadata:
+      labels:
+        app: image-cleanup
+        job-type: image-cleanup
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 7200 # 2 hour timeout
+      template:
+        metadata:
+          labels:
+            app: image-cleanup
+            job-type: image-cleanup
+        spec:
+          serviceAccountName: image-cleanup-sa
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1004
+            runAsGroup: 1004
+            fsGroup: 1004
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: image-cleanup
+              image: minio/mc:RELEASE.2023-09-07T22-48-55Z
+              imagePullPolicy: Always
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+
+                  echo "Starting image cleanup job at $(date)"
+
+                  # Configure MinIO client
+                  mc config host add minio $MINIO_ENDPOINT $MINIO_ACCESS_KEY $MINIO_SECRET_KEY
+
+                  # List all buckets
+                  echo "Available buckets:"
+                  mc ls minio/
+
+                  # Clean up temporary uploads older than 7 days
+                  echo "Cleaning up temporary uploads..."
+                  mc find minio/property-images/temp --older-than 7d --exec "mc rm {}"
+
+                  # Clean up orphaned images (not referenced in database)
+                  echo "Finding orphaned images..."
+
+                  # Get list of all images in MinIO
+                  mc find minio/property-images --name "*.jpg" --name "*.jpeg" --name "*.png" > /tmp/minio_images.txt
+
+                  # Query database for referenced images
+                  PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -t -c "
+                    SELECT DISTINCT image_url 
+                    FROM listings 
+                    WHERE image_url IS NOT NULL
+                    UNION
+                    SELECT DISTINCT thumbnail_url 
+                    FROM listings 
+                    WHERE thumbnail_url IS NOT NULL;
+                  " > /tmp/db_images.txt
+
+                  # Find orphaned images
+                  echo "Identifying orphaned images..."
+                  python3 -c "
+                  import sys
+
+                  # Read MinIO images
+                  with open('/tmp/minio_images.txt', 'r') as f:
+                      minio_images = set(line.strip().replace('minio/', '') for line in f if line.strip())
+
+                  # Read DB referenced images
+                  with open('/tmp/db_images.txt', 'r') as f:
+                      db_images = set(line.strip() for line in f if line.strip() and not line.strip().startswith('image_url'))
+
+                  # Find orphaned images
+                  orphaned = minio_images - db_images
+
+                  print(f'Found {len(orphaned)} orphaned images')
+
+                  # Write orphaned images to file
+                  with open('/tmp/orphaned_images.txt', 'w') as f:
+                      for img in orphaned:
+                          f.write(f'minio/{img}\n')
+                  "
+
+                  # Remove orphaned images (older than 30 days to be safe)
+                  if [ -s /tmp/orphaned_images.txt ]; then
+                    echo "Removing orphaned images older than 30 days..."
+                    while IFS= read -r image_path; do
+                      if mc stat "$image_path" --json | python3 -c "
+                      import sys, json
+                      from datetime import datetime, timedelta
+                      data = json.load(sys.stdin)
+                      mod_time = datetime.fromisoformat(data['lastModified'].replace('Z', '+00:00'))
+                      cutoff = datetime.now().astimezone() - timedelta(days=30)
+                      sys.exit(0 if mod_time < cutoff else 1)
+                      "; then
+                        echo "Removing: $image_path"
+                        mc rm "$image_path"
+                      fi
+                    done < /tmp/orphaned_images.txt
+                  else
+                    echo "No orphaned images found"
+                  fi
+
+                  # Clean up incomplete multipart uploads
+                  echo "Cleaning up incomplete multipart uploads..."
+                  mc admin heal minio/property-images --dry-run
+
+                  # Generate cleanup report
+                  echo "=== CLEANUP REPORT ===" > /tmp/cleanup_report.txt
+                  echo "Date: $(date)" >> /tmp/cleanup_report.txt
+                  echo "Temporary files removed: $(mc find minio/property-images/temp --name "*.tmp" | wc -l)" >> /tmp/cleanup_report.txt
+                  echo "Orphaned images processed: $(wc -l < /tmp/orphaned_images.txt)" >> /tmp/cleanup_report.txt
+                  echo "Storage usage after cleanup:" >> /tmp/cleanup_report.txt
+                  mc du minio/property-images >> /tmp/cleanup_report.txt
+
+                  echo "Cleanup job completed at $(date)"
+                  cat /tmp/cleanup_report.txt
+              env:
+                - name: MINIO_ENDPOINT
+                  value: "http://image-store:9000"
+                - name: MINIO_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: image-store-secret
+                      key: root-user
+                - name: MINIO_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: image-store-secret
+                      key: root-password
+                - name: DB_HOST
+                  value: "postgresql-db"
+                - name: DB_NAME
+                  valueFrom:
+                    configMapKeyRef:
+                      name: db-configmap
+                      key: database-name
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-secret
+                      key: readonly-username
+                - name: DB_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: db-secret
+                      key: readonly-password
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                  ephemeral-storage: 1Gi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+                  ephemeral-storage: 2Gi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 1004
+                runAsGroup: 1004
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: tmp
+              emptyDir:
+                sizeLimit: 1Gi
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/os: linux
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: image-cleanup-sa
+  namespace: kubeestatehub
+  labels:
+    app: image-cleanup
+    app.kubernetes.io/name: image-cleanup-sa
+    app.kubernetes.io/component: maintenance
+    app.kubernetes.io/part-of: kubeestatehub

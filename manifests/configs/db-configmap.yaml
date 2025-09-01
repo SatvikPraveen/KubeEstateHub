@@ -1,0 +1,85 @@
+# Location: `/manifests/configs/db-configmap.yaml`
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-configmap
+  namespace: kubeestatehub
+  labels:
+    app: postgresql-db
+    app.kubernetes.io/name: db-configmap
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: kubeestatehub
+data:
+  # Database Configuration
+  database-name: "kubeestatehub"
+  POSTGRES_DB: "kubeestatehub"
+
+  # Connection Settings
+  max_connections: "200"
+  shared_buffers: "256MB"
+  effective_cache_size: "1GB"
+  maintenance_work_mem: "64MB"
+  checkpoint_completion_target: "0.9"
+  wal_buffers: "16MB"
+  default_statistics_target: "100"
+  random_page_cost: "1.1"
+  effective_io_concurrency: "200"
+
+  # Logging Configuration
+  log_destination: "stderr"
+  logging_collector: "on"
+  log_directory: "/var/log/postgresql"
+  log_filename: "postgresql-%Y-%m-%d_%H%M%S.log"
+  log_statement: "ddl"
+  log_min_duration_statement: "1000"
+
+  # Security Settings
+  ssl: "on"
+  ssl_cert_file: "/etc/ssl/certs/server.crt"
+  ssl_key_file: "/etc/ssl/private/server.key"
+
+  # PostgreSQL Configuration File
+  postgresql.conf: |
+    # Connection Settings
+    listen_addresses = '*'
+    port = 5432
+    max_connections = 200
+
+    # Memory Settings
+    shared_buffers = 256MB
+    effective_cache_size = 1GB
+    maintenance_work_mem = 64MB
+    work_mem = 4MB
+
+    # Write Ahead Log
+    wal_level = replica
+    max_wal_size = 1GB
+    min_wal_size = 80MB
+    checkpoint_completion_target = 0.9
+    wal_buffers = 16MB
+
+    # Query Tuning
+    default_statistics_target = 100
+    random_page_cost = 1.1
+    effective_io_concurrency = 200
+
+    # Error Reporting and Logging
+    log_destination = 'stderr'
+    logging_collector = on
+    log_directory = '/var/log/postgresql'
+    log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+    log_min_messages = warning
+    log_min_error_statement = error
+    log_min_duration_statement = 1000
+
+    # Runtime Statistics
+    track_activities = on
+    track_counts = on
+    track_io_timing = on
+    track_functions = pl
+
+    # Automatic Vacuuming
+    autovacuum = on
+    autovacuum_vacuum_scale_factor = 0.1
+    autovacuum_analyze_scale_factor = 0.05

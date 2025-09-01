@@ -1,0 +1,47 @@
+# Location: `/helm-charts/kubeestatehub/templates/pvc.yaml`
+
+{{- if and .Values.imageStore.enabled .Values.imageStore.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-image-store-pvc
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: storage
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.imageStore.persistence.size }}
+  {{- if .Values.imageStore.persistence.storageClass }}
+  {{- if (eq "-" .Values.imageStore.persistence.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.imageStore.persistence.storageClass }}
+  {{- end }}
+  {{- else if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+---
+{{- end }}
+
+{{- if .Values.backup.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-backup-pvc
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backup
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  {{- if .Values.global.storageClass }}
+  storageClassName: {{ .Values.global.storageClass }}
+  {{- end }}
+---
+{{- end }}

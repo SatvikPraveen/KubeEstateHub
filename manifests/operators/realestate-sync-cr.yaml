@@ -1,0 +1,108 @@
+# Location: `/manifests/operators/realestate-sync-cr.yaml`
+
+apiVersion: realestate.kubeestatehub.io/v1
+kind: RealEstateSync
+metadata:
+  name: mls-daily-sync
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: mls-daily-sync
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+    sync-type: mls
+spec:
+  source:
+    type: mls
+    endpoint: "https://api.mls-provider.com/v2/listings"
+    credentials:
+      secretRef:
+        name: mls-credentials
+        key: api-key
+  schedule: "0 2 * * *" # Daily at 2 AM
+  syncConfig:
+    batchSize: 500
+    retryLimit: 3
+    timeout: "45m"
+    filters:
+      propertyTypes:
+        - "residential"
+        - "commercial"
+      priceRange:
+        min: 50000
+        max: 5000000
+      location:
+        city: "Austin"
+        state: "TX"
+        radius: 50
+  destination:
+    database:
+      connectionString: "postgresql://kubeestatehub:password@postgresql-db:5432/kubeestatehub"
+      table: "mls_listings"
+---
+apiVersion: realestate.kubeestatehub.io/v1
+kind: RealEstateSync
+metadata:
+  name: market-data-sync
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: market-data-sync
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+    sync-type: market-data
+spec:
+  source:
+    type: api
+    endpoint: "https://api.market-data.com/v1/trends"
+    credentials:
+      secretRef:
+        name: market-data-credentials
+        key: access-token
+  schedule: "0 */6 * * *" # Every 6 hours
+  syncConfig:
+    batchSize: 100
+    retryLimit: 5
+    timeout: "20m"
+    filters:
+      location:
+        state: "TX"
+  destination:
+    database:
+      connectionString: "postgresql://kubeestatehub:password@postgresql-db:5432/kubeestatehub"
+      table: "market_trends"
+    webhook:
+      url: "http://analytics-worker:9090/webhook/market-update"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+        X-Source: "market-data-sync"
+---
+apiVersion: realestate.kubeestatehub.io/v1
+kind: RealEstateSync
+metadata:
+  name: property-images-sync
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: property-images-sync
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/part-of: kubeestatehub
+    sync-type: images
+spec:
+  source:
+    type: api
+    endpoint: "https://api.property-images.com/v1/photos"
+    credentials:
+      secretRef:
+        name: property-images-credentials
+        key: api-secret
+  schedule: "0 4 * * *" # Daily at 4 AM
+  syncConfig:
+    batchSize: 50
+    retryLimit: 2
+    timeout: "60m"
+  destination:
+    webhook:
+      url: "http://image-store:9000/upload/batch"
+      method: "POST"
+      headers:
+        Authorization: "Bearer ${MINIO_ACCESS_TOKEN}"
+        Content-Type: "multipart/form-data"

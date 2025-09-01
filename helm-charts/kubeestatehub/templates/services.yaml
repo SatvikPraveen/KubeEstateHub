@@ -1,0 +1,80 @@
+# Location: `/helm-charts/kubeestatehub/templates/services.yaml`
+
+{{- if .Values.listingsApi.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-listings-api
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: listings-api
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  type: {{ .Values.listingsApi.service.type }}
+  ports:
+  - port: {{ .Values.listingsApi.service.port }}
+    targetPort: {{ .Values.listingsApi.service.targetPort }}
+    protocol: TCP
+    name: http
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: metrics
+  selector:
+    {{- include "kubeestatehub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: listings-api
+---
+{{- end }}
+
+{{- if .Values.frontendDashboard.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-frontend-dashboard
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend-dashboard
+spec:
+  type: {{ .Values.frontendDashboard.service.type }}
+  ports:
+  - port: {{ .Values.frontendDashboard.service.port }}
+    targetPort: {{ .Values.frontendDashboard.service.targetPort }}
+    protocol: TCP
+    name: http
+  selector:
+    {{- include "kubeestatehub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend-dashboard
+---
+{{- end }}
+
+{{- if .Values.imageStore.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-image-store
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: image-store
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9000"
+    prometheus.io/path: "/minio/v2/metrics/cluster"
+spec:
+  type: {{ .Values.imageStore.service.type }}
+  ports:
+  - port: {{ .Values.imageStore.service.port }}
+    targetPort: 9000
+    protocol: TCP
+    name: api
+  - port: {{ .Values.imageStore.service.consolePort }}
+    targetPort: 9001
+    protocol: TCP
+    name: console
+  selector:
+    {{- include "kubeestatehub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: image-store
+---
+{{- end }}

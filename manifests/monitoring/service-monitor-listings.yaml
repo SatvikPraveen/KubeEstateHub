@@ -1,0 +1,141 @@
+# Location: `/manifests/monitoring/service-monitor-listings.yaml`
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kubeestatehub-services
+  namespace: kubeestatehub
+  labels:
+    app.kubernetes.io/name: kubeestatehub-services
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: kubeestatehub
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scrapeTimeout: 10s
+    - port: http
+      interval: 30s
+      path: /metrics
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+      - kubeestatehub
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: listings-api-monitor
+  namespace: kubeestatehub
+  labels:
+    app: listings-api
+    app.kubernetes.io/name: listings-api-monitor
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  selector:
+    matchLabels:
+      app: listings-api
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics
+      scrapeTimeout: 10s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+  namespaceSelector:
+    matchNames:
+      - kubeestatehub
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: analytics-worker-monitor
+  namespace: kubeestatehub
+  labels:
+    app: analytics-worker
+    app.kubernetes.io/name: analytics-worker-monitor
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  selector:
+    matchLabels:
+      app: analytics-worker
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scrapeTimeout: 10s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+  namespaceSelector:
+    matchNames:
+      - kubeestatehub
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgresql-monitor
+  namespace: kubeestatehub
+  labels:
+    app: postgresql-db
+    app.kubernetes.io/name: postgresql-monitor
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  selector:
+    matchLabels:
+      app: postgresql-db
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
+      scrapeTimeout: 10s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+  namespaceSelector:
+    matchNames:
+      - kubeestatehub
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: node-exporter-monitor
+  namespace: kubeestatehub
+  labels:
+    app: node-exporter
+    app.kubernetes.io/name: node-exporter-monitor
+    app.kubernetes.io/component: monitoring
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  selector:
+    matchLabels:
+      app: node-exporter
+  endpoints:
+    - port: metrics
+      interval: 15s
+      path: /metrics
+      scrapeTimeout: 10s
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - sourceLabels: [__meta_kubernetes_pod_node_name]
+          targetLabel: node
+  namespaceSelector:
+    matchNames:
+      - kubeestatehub

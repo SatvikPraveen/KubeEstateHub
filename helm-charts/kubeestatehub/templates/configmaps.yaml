@@ -1,0 +1,66 @@
+# Location: `/helm-charts/kubeestatehub/templates/configmaps.yaml`
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-listings-config
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  APP_ENV: "production"
+  LOG_LEVEL: {{ .Values.listingsApi.env.LOG_LEVEL | default "info" | quote }}
+  DEBUG: {{ .Values.listingsApi.env.DEBUG | default "false" | quote }}
+  PORT: "8080"
+  API_VERSION: "v1"
+  API_TITLE: "KubeEstateHub Listings API"
+  MAX_PAGE_SIZE: "100"
+  DEFAULT_PAGE_SIZE: "20"
+  ENABLE_METRICS: "true"
+  ENABLE_CORS: "true"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-analytics-config
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  WORKER_CONCURRENCY: {{ .Values.analyticsWorker.env.WORKER_CONCURRENCY | default "4" | quote }}
+  LOG_LEVEL: {{ .Values.analyticsWorker.env.LOG_LEVEL | default "info" | quote }}
+  QUEUE_NAME: "analytics-tasks"
+  ANALYSIS_BATCH_SIZE: "100"
+  REPORT_OUTPUT_FORMAT: "json"
+  METRICS_PORT: "9090"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-frontend-config
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  ENVIRONMENT: "production"
+  APP_TITLE: "KubeEstateHub Dashboard"
+  APP_VERSION: {{ .Chart.AppVersion | quote }}
+  API_BASE_URL: {{ printf "https://%s/api/v1" (index .Values.ingress.hosts 1).host | quote }}
+  DEFAULT_THEME: "light"
+  ENABLE_DARK_MODE: "true"
+  ITEMS_PER_PAGE: "20"
+---
+{{- if .Values.postgresql.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-db-config
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: config
+data:
+  DATABASE_NAME: {{ .Values.global.postgresql.auth.database | quote }}
+  MAX_CONNECTIONS: "200"
+  SHARED_BUFFERS: "256MB"
+  EFFECTIVE_CACHE_SIZE: "1GB"
+{{- end }}

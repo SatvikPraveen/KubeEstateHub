@@ -1,0 +1,297 @@
+# Location: `/helm-charts/kubeestatehub/templates/deployments.yaml`
+
+{{- if .Values.listingsApi.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-listings-api
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: listings-api
+spec:
+  replicas: {{ .Values.listingsApi.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kubeestatehub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: listings-api
+  template:
+    metadata:
+      labels:
+        {{- include "kubeestatehub.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: listings-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ include "kubeestatehub.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: listings-api
+        image: "{{ .Values.listingsApi.image.repository }}:{{ .Values.listingsApi.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.listingsApi.image.pullPolicy }}
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "8080"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "kubeestatehub.fullname" . }}-db-secret
+              key: database-url
+        {{- range $key, $value := .Values.listingsApi.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.listingsApi.resources | nindent 10 }}
+        {{- if .Values.listingsApi.livenessProbe }}
+        livenessProbe:
+          {{- toYaml .Values.listingsApi.livenessProbe | nindent 10 }}
+        {{- end }}
+        {{- if .Values.listingsApi.readinessProbe }}
+        readinessProbe:
+          {{- toYaml .Values.listingsApi.readinessProbe | nindent 10 }}
+        {{- end }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- end }}
+
+{{- if .Values.analyticsWorker.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-analytics-worker
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: analytics-worker
+spec:
+  replicas: {{ .Values.analyticsWorker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kubeestatehub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: analytics-worker
+  template:
+    metadata:
+      labels:
+        {{- include "kubeestatehub.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: analytics-worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: {{ include "kubeestatehub.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+      - name: analytics-worker
+        image: "{{ .Values.analyticsWorker.image.repository }}:{{ .Values.analyticsWorker.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.analyticsWorker.image.pullPolicy }}
+        ports:
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "kubeestatehub.fullname" . }}-db-secret
+              key: database-url
+        {{- range $key, $value := .Values.analyticsWorker.env }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.analyticsWorker.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
+---
+{{- end }}
+
+{{- if .Values.frontendDashboard.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-frontend-dashboard
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend-dashboard
+spec:
+  replicas: {{ .Values.frontendDashboard.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kubeestatehub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend-dashboard
+  template:
+    metadata:
+      labels:
+        {{- include "kubeestatehub.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend-dashboard
+    spec:
+      serviceAccountName: {{ include "kubeestatehub.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+      containers:
+      - name: frontend-dashboard
+        image: "{{ .Values.frontendDashboard.image.repository }}:{{ .Values.frontendDashboard.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.frontendDashboard.image.pullPolicy }}
+        ports:
+        - containerPort: 80
+          name: http
+          protocol: TCP
+        resources:
+          {{- toYaml .Values.frontendDashboard.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 101
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+        volumeMounts:
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: nginx-run
+          mountPath: /var/run
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: nginx-cache
+        emptyDir: {}
+      - name: nginx-run
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+---
+{{- end }}
+
+{{- if .Values.imageStore.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubeestatehub.fullname" . }}-image-store
+  labels:
+    {{- include "kubeestatehub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: image-store
+spec:
+  replicas: {{ .Values.imageStore.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kubeestatehub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: image-store
+  template:
+    metadata:
+      labels:
+        {{- include "kubeestatehub.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: image-store
+    spec:
+      serviceAccountName: {{ include "kubeestatehub.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1002
+        runAsGroup: 1002
+        fsGroup: 1002
+      containers:
+      - name: minio
+        image: "{{ .Values.imageStore.image.repository }}:{{ .Values.imageStore.image.tag }}"
+        imagePullPolicy: {{ .Values.imageStore.image.pullPolicy }}
+        command:
+        - /bin/bash
+        - -c
+        args:
+        - minio server /data --console-address ":9001" --address ":9000"
+        ports:
+        - containerPort: 9000
+          name: api
+          protocol: TCP
+        - containerPort: 9001
+          name: console
+          protocol: TCP
+        env:
+        - name: MINIO_ROOT_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "kubeestatehub.fullname" . }}-minio-secret
+              key: root-user
+        - name: MINIO_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "kubeestatehub.fullname" . }}-minio-secret
+              key: root-password
+        resources:
+          {{- toYaml .Values.imageStore.resources | nindent 10 }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1002
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      {{- if .Values.imageStore.persistence.enabled }}
+      - name: data
+        persistentVolumeClaim:
+          claimName: {{ include "kubeestatehub.fullname" . }}-image-store-pvc
+      {{- else }}
+      - name: data
+        emptyDir: {}
+      {{- end }}
+---
+{{- end }}

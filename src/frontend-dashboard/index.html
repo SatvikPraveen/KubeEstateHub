@@ -1,0 +1,364 @@
+<!-- Location: `/src/frontend-dashboard/index.html` -->
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="KubeEstateHub - Modern Real Estate Management Platform"
+    />
+    <meta
+      name="keywords"
+      content="real estate, property management, listings, analytics"
+    />
+    <meta name="author" content="KubeEstateHub Team" />
+
+    <title>KubeEstateHub Dashboard</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <!-- Chart.js for analytics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.min.js"></script>
+  </head>
+  <body>
+    <!-- Loading Spinner -->
+    <div id="loading-spinner" class="loading-spinner">
+      <div class="spinner"></div>
+      <p>Loading KubeEstateHub...</p>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <div class="logo">
+          <i class="fas fa-home"></i>
+          <span>KubeEstateHub</span>
+        </div>
+
+        <nav class="nav">
+          <a href="#dashboard" class="nav-link active" data-section="dashboard">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+          </a>
+          <a href="#listings" class="nav-link" data-section="listings">
+            <i class="fas fa-list"></i> Listings
+          </a>
+          <a href="#analytics" class="nav-link" data-section="analytics">
+            <i class="fas fa-chart-bar"></i> Analytics
+          </a>
+          <a href="#settings" class="nav-link" data-section="settings">
+            <i class="fas fa-cog"></i> Settings
+          </a>
+        </nav>
+
+        <div class="header-actions">
+          <button class="theme-toggle" id="theme-toggle">
+            <i class="fas fa-moon"></i>
+          </button>
+          <div class="user-menu">
+            <button class="user-avatar">
+              <i class="fas fa-user"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Dashboard Section -->
+      <section id="dashboard" class="section active">
+        <div class="section-header">
+          <h1>Dashboard Overview</h1>
+          <p>Welcome to your real estate management hub</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-home"></i>
+            </div>
+            <div class="stat-content">
+              <h3 id="total-listings">Loading...</h3>
+              <p>Total Listings</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-dollar-sign"></i>
+            </div>
+            <div class="stat-content">
+              <h3 id="avg-price">Loading...</h3>
+              <p>Average Price</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-content">
+              <h3 id="avg-days">Loading...</h3>
+              <p>Avg Days on Market</p>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon">
+              <i class="fas fa-chart-line"></i>
+            </div>
+            <div class="stat-content">
+              <h3 id="market-trend">Loading...</h3>
+              <p>Market Trend</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Price Trends</h3>
+            </div>
+            <div class="chart-container">
+              <canvas id="price-trend-chart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3>Property Types</h3>
+            </div>
+            <div class="chart-container">
+              <canvas id="property-type-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Listings Section -->
+      <section id="listings" class="section">
+        <div class="section-header">
+          <h1>Property Listings</h1>
+          <div class="header-actions">
+            <button class="btn btn-primary" id="add-listing-btn">
+              <i class="fas fa-plus"></i> Add Listing
+            </button>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters">
+          <div class="filter-group">
+            <label for="city-filter">City</label>
+            <select id="city-filter">
+              <option value="">All Cities</option>
+              <option value="Austin">Austin</option>
+              <option value="Houston">Houston</option>
+              <option value="Dallas">Dallas</option>
+              <option value="San Antonio">San Antonio</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="property-type-filter">Type</label>
+            <select id="property-type-filter">
+              <option value="">All Types</option>
+              <option value="residential">Residential</option>
+              <option value="commercial">Commercial</option>
+              <option value="industrial">Industrial</option>
+              <option value="land">Land</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="min-price">Min Price</label>
+            <input type="number" id="min-price" placeholder="$0" />
+          </div>
+
+          <div class="filter-group">
+            <label for="max-price">Max Price</label>
+            <input type="number" id="max-price" placeholder="No limit" />
+          </div>
+
+          <button class="btn btn-secondary" id="apply-filters">
+            Apply Filters
+          </button>
+          <button class="btn btn-ghost" id="clear-filters">Clear</button>
+        </div>
+
+        <!-- Listings Grid -->
+        <div class="listings-grid" id="listings-grid">
+          <!-- Listings will be loaded here -->
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination">
+          <!-- Pagination will be generated here -->
+        </div>
+      </section>
+
+      <!-- Analytics Section -->
+      <section id="analytics" class="section">
+        <div class="section-header">
+          <h1>Market Analytics</h1>
+          <p>Insights and trends from your real estate data</p>
+        </div>
+
+        <div class="analytics-grid">
+          <div class="analytics-card">
+            <h3>Market Performance</h3>
+            <div class="metric-row">
+              <span class="metric-label">Sales Volume</span>
+              <span class="metric-value" id="sales-volume">Loading...</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">Price Growth</span>
+              <span class="metric-value" id="price-growth">Loading...</span>
+            </div>
+            <div class="metric-row">
+              <span class="metric-label">Inventory Levels</span>
+              <span class="metric-value" id="inventory-levels">Loading...</span>
+            </div>
+          </div>
+
+          <div class="analytics-card">
+            <h3>Top Cities</h3>
+            <div id="top-cities-list">
+              <!-- Top cities will be loaded here -->
+            </div>
+          </div>
+
+          <div class="analytics-card full-width">
+            <h3>Market Trends</h3>
+            <div class="chart-container">
+              <canvas id="market-trends-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings Section -->
+      <section id="settings" class="section">
+        <div class="section-header">
+          <h1>Settings</h1>
+          <p>Configure your application preferences</p>
+        </div>
+
+        <div class="settings-grid">
+          <div class="settings-card">
+            <h3>Display Preferences</h3>
+            <div class="setting-item">
+              <label for="items-per-page">Items per page</label>
+              <select id="items-per-page">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+            <div class="setting-item">
+              <label>
+                <input type="checkbox" id="dark-mode-setting" />
+                Enable dark mode
+              </label>
+            </div>
+          </div>
+
+          <div class="settings-card">
+            <h3>API Configuration</h3>
+            <div class="setting-item">
+              <label for="api-endpoint">API Endpoint</label>
+              <input type="url" id="api-endpoint" value="" readonly />
+            </div>
+            <div class="setting-item">
+              <label>Connection Status</label>
+              <span class="status-indicator" id="api-status">
+                <i class="fas fa-circle"></i> Checking...
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Add Listing Modal -->
+    <div id="add-listing-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add New Listing</h3>
+          <button class="modal-close">&times;</button>
+        </div>
+        <form id="add-listing-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="mls-number">MLS Number*</label>
+              <input type="text" id="mls-number" required />
+            </div>
+            <div class="form-group">
+              <label for="listing-title">Title*</label>
+              <input type="text" id="listing-title" required />
+            </div>
+            <div class="form-group">
+              <label for="listing-price">Price*</label>
+              <input type="number" id="listing-price" required />
+            </div>
+            <div class="form-group">
+              <label for="listing-type">Property Type*</label>
+              <select id="listing-type" required>
+                <option value="">Select Type</option>
+                <option value="residential">Residential</option>
+                <option value="commercial">Commercial</option>
+                <option value="industrial">Industrial</option>
+                <option value="land">Land</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost" id="cancel-listing">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">Add Listing</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Error Toast -->
+    <div id="error-toast" class="toast error">
+      <i class="fas fa-exclamation-circle"></i>
+      <span id="error-message"></span>
+      <button class="toast-close">&times;</button>
+    </div>
+
+    <!-- Success Toast -->
+    <div id="success-toast" class="toast success">
+      <i class="fas fa-check-circle"></i>
+      <span id="success-message"></span>
+      <button class="toast-close">&times;</button>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="app.js"></script>
+  </body>
+</html>

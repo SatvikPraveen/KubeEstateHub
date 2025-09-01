@@ -1,0 +1,60 @@
+# Location: `/.kubeignore`
+
+# Development and testing files
+
+\*.md
+docs/
+tests/
+.github/
+
+# Source code (only deploy manifests)
+
+src/
+_.py
+_.js
+_.html
+_.css
+Dockerfile
+requirements.txt
+
+# Build artifacts
+
+dist/
+build/
+node_modules/
+
+# IDE files
+
+.vscode/
+.idea/
+\*.swp
+
+# Logs and temporary files
+
+_.log
+_.tmp
+.cache/
+
+# Local configs
+
+.env*
+kubeconfig*
+\*.local
+
+# Git files
+
+.git/
+.gitignore
+
+# CI/CD files (deploy separately)
+
+.github/
+
+# Helm packaging files
+
+charts/\*.tgz
+
+# Backup files
+
+_.bak
+_~
