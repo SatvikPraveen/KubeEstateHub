@@ -457,12 +457,15 @@ Complete documentation available:
 ## Contributing
 
 Contributions are welcome! Please:
-1. Fork the repository
-2. Create feature branch
-3. Make changes
-4. Add tests
-5. Update documentation
-6. Submit pull request
+1. Read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
+2. Fork the repository
+3. Create feature branch
+4. Make changes
+5. Add tests
+6. Update documentation
+7. Submit pull request
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed instructions.
 
 ## License
 
