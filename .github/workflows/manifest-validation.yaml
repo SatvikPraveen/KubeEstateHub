@@ -157,16 +157,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install kubeval
-        run: |
-          wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
-          tar xf kubeval-linux-amd64.tar.gz
-          sudo mv kubeval /usr/local/bin/
-
-      - name: Validate with kubeval
+      - name: Check for kubeval
         continue-on-error: true
         run: |
-          find manifests/ -name "*.yaml" -exec kubeval {} \; || true
+          echo "Kubeval validation skipped due to network constraints"
+          echo "Kubectl dry-run validation performed in kubectl-validation job"
+
+      - name: Validate with kubectl
+        continue-on-error: true
+        run: |
+          find manifests/ -name "*.yaml" -exec kubectl --dry-run=client apply -f {} \; || true
 
       - name: Check resource naming conventions
         continue-on-error: true
