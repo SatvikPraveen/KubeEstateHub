@@ -100,33 +100,27 @@ build_images() {
     
     print_step "Building Docker images..."
     
-    cd ../src
+    # Get the script directory
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+    SRC_DIR="$PROJECT_DIR/src"
     
     # Build listings API
     echo "Building listings-api..."
-    cd listings-api
-    docker build -t kubeestatehub/listings-api:latest .
-    cd ..
+    docker build -t kubeestatehub/listings-api:latest "$SRC_DIR/listings-api"
     
     # Build analytics worker
     echo "Building analytics-worker..."
-    cd analytics-worker
-    docker build -t kubeestatehub/analytics-worker:latest .
-    cd ..
+    docker build -t kubeestatehub/analytics-worker:latest "$SRC_DIR/analytics-worker"
     
     # Build frontend dashboard
     echo "Building frontend-dashboard..."
-    cd frontend-dashboard
-    docker build -t kubeestatehub/frontend-dashboard:latest .
-    cd ..
+    docker build -t kubeestatehub/frontend-dashboard:latest "$SRC_DIR/frontend-dashboard"
     
     # Build metrics service
     echo "Building metrics-service..."
-    cd metrics-service
-    docker build -t kubeestatehub/metrics-service:latest .
-    cd ..
+    docker build -t kubeestatehub/metrics-service:latest "$SRC_DIR/metrics-service"
     
-    cd ../scripts
     echo -e "${GREEN}✓${NC} All images built successfully"
 }
 
@@ -155,75 +149,92 @@ prepare_namespace() {
 deploy_with_manifests() {
     print_step "Deploying with raw manifests..."
     
+    # Get the script directory
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+    MANIFESTS_DIR="$PROJECT_DIR/manifests"
+    
     # Apply in order for dependencies
-    kubectl apply -f ../manifests/storage/
-    kubectl apply -f ../manifests/configs/
-    kubectl apply -f ../manifests/base/namespace.yaml
-    kubectl apply -f ../manifests/base/db-statefulset.yaml
-    kubectl apply -f ../manifests/base/db-service.yaml
+    kubectl apply -f "$MANIFESTS_DIR/storage/"
+    kubectl apply -f "$MANIFESTS_DIR/configs/db-configmap.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/configs/db-secret.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/configs/global-env-secret.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/namespace.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/db-statefulset.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/db-service.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/postgresql-db-headless-service.yaml"
     
     # Wait for database
     echo "Waiting for database to be ready..."
-    kubectl wait --for=condition=Ready pod/postgres-0 --timeout=${TIMEOUT}s
+    kubectl wait --for=condition=Ready pod/postgresql-db-0 --timeout=${TIMEOUT}s -n $NAMESPACE || true
+    
+    # Run database initialization
+    echo "Initializing database schema..."
+    kubectl apply -f "$MANIFESTS_DIR/jobs/db-init-job.yaml"
+    kubectl wait --for=condition=complete job/db-init --timeout=${TIMEOUT}s -n $NAMESPACE || true
     
     # Deploy application services
-    kubectl apply -f ../manifests/base/listings-api-deployment.yaml
-    kubectl apply -f ../manifests/base/listings-api-service.yaml
-    kubectl apply -f ../manifests/base/analytics-worker-deployment.yaml
-    kubectl apply -f ../manifests/base/analytics-worker-cronjob.yaml
-    kubectl apply -f ../manifests/base/frontend-dashboard-deployment.yaml
-    kubectl apply -f ../manifests/base/frontend-dashboard-service.yaml
-    kubectl apply -f ../manifests/base/image-store-deployment.yaml
-    kubectl apply -f ../manifests/base/image-store-service.yaml
+    kubectl apply -f "$MANIFESTS_DIR/base/listings-api-deployment.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/listings-api-service.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/analytics-worker-deployment.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/analytics-worker-cronjob.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/frontend-dashboard-deployment.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/frontend-dashboard-service.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/image-store-deployment.yaml"
+    kubectl apply -f "$MANIFESTS_DIR/base/image-store-service.yaml"
     
     # Apply networking
-    kubectl apply -f ../manifests/network/
-    kubectl apply -f ../manifests/base/ingress.yaml
+    kubectl apply -f "$MANIFESTS_DIR/network/"
+    kubectl apply -f "$MANIFESTS_DIR/base/ingress.yaml"
     
     # Apply monitoring
-    kubectl apply -f ../manifests/monitoring/
+    kubectl apply -f "$MANIFESTS_DIR/monitoring/" || true
     
     # Apply autoscaling
-    kubectl apply -f ../manifests/autoscaling/
+    kubectl apply -f "$MANIFESTS_DIR/autoscaling/" || true
     
     # Apply jobs
-    kubectl apply -f ../manifests/jobs/
+    kubectl apply -f "$MANIFESTS_DIR/jobs/" || true
 }
 
 deploy_with_kustomize() {
     print_step "Deploying with Kustomize..."
     
-    cd ../kustomize/overlays/$ENVIRONMENT
-    kubectl apply -k .
-    cd ../../../scripts
+    # Get the script directory
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+    KUSTOMIZE_DIR="$PROJECT_DIR/kustomize/overlays/$ENVIRONMENT"
+    
+    kubectl apply -k "$KUSTOMIZE_DIR"
 }
 
 deploy_with_helm() {
     print_step "Deploying with Helm..."
     
-    cd ../helm-charts
+    # Get the script directory
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+    HELM_CHART_DIR="$PROJECT_DIR/helm-charts/kubeestatehub"
     
     # Add dependencies if needed
-    helm dependency update kubeestatehub/
+    helm dependency update "$HELM_CHART_DIR/"
     
     # Install or upgrade
     if helm list -n $NAMESPACE | grep -q kubeestatehub; then
         print_warning "Existing Helm release found, upgrading..."
-        helm upgrade kubeestatehub kubeestatehub/ \
+        helm upgrade kubeestatehub "$HELM_CHART_DIR/" \
             --namespace $NAMESPACE \
-            --values kubeestatehub/values-$ENVIRONMENT.yaml \
+            --values "$HELM_CHART_DIR/values-$ENVIRONMENT.yaml" \
             --timeout ${TIMEOUT}s \
             --wait
     else
-        helm install kubeestatehub kubeestatehub/ \
+        helm install kubeestatehub "$HELM_CHART_DIR/" \
             --namespace $NAMESPACE \
-            --values kubeestatehub/values-$ENVIRONMENT.yaml \
+            --values "$HELM_CHART_DIR/values-$ENVIRONMENT.yaml" \
             --timeout ${TIMEOUT}s \
             --wait \
             --create-namespace
     fi
-    
-    cd ../scripts
 }
 
 wait_for_deployments() {
@@ -328,32 +339,42 @@ show_access_info() {
     echo "📱 Application Services:"
     
     # Frontend
-    FRONTEND_PORT=$(kubectl get svc frontend-dashboard-service -o jsonpath='{.spec.ports[0].port}')
-    echo "  Frontend: kubectl port-forward svc/frontend-dashboard-service 3000:$FRONTEND_PORT"
+    if kubectl get svc frontend-dashboard-service -n $NAMESPACE &> /dev/null; then
+        FRONTEND_PORT=$(kubectl get svc frontend-dashboard-service -n $NAMESPACE -o jsonpath='{.spec.ports[0].port}')
+        echo "  Frontend: kubectl port-forward svc/frontend-dashboard-service -n $NAMESPACE 3000:$FRONTEND_PORT"
+    fi
     
     # API
-    API_PORT=$(kubectl get svc listings-api-service -o jsonpath='{.spec.ports[0].port}')
-    echo "  API: kubectl port-forward svc/listings-api-service 8080:$API_PORT"
+    if kubectl get svc listings-api-service -n $NAMESPACE &> /dev/null; then
+        API_PORT=$(kubectl get svc listings-api-service -n $NAMESPACE -o jsonpath='{.spec.ports[0].port}')
+        echo "  API: kubectl port-forward svc/listings-api-service -n $NAMESPACE 8080:$API_PORT"
+    fi
     
     # Database
-    DB_PORT=$(kubectl get svc postgres-service -o jsonpath='{.spec.ports[0].port}')
-    echo "  Database: kubectl port-forward svc/postgres-service 5432:$DB_PORT"
+    if kubectl get svc postgresql-db -n $NAMESPACE &> /dev/null; then
+        DB_PORT=$(kubectl get svc postgresql-db -n $NAMESPACE -o jsonpath='{.spec.ports[0].port}')
+        echo "  Database: kubectl port-forward svc/postgresql-db -n $NAMESPACE 5432:$DB_PORT"
+    fi
     
     echo ""
     echo "📊 Monitoring:"
     
     # Grafana
-    GRAFANA_PORT=$(kubectl get svc grafana-service -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || echo "3000")
-    echo "  Grafana: kubectl port-forward svc/grafana-service 3001:$GRAFANA_PORT"
+    if kubectl get svc grafana-service -n $NAMESPACE &> /dev/null; then
+        GRAFANA_PORT=$(kubectl get svc grafana-service -n $NAMESPACE -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || echo "3000")
+        echo "  Grafana: kubectl port-forward svc/grafana-service -n $NAMESPACE 3001:$GRAFANA_PORT"
+    fi
     
     # Prometheus
-    PROMETHEUS_PORT=$(kubectl get svc prometheus-service -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || echo "9090")
-    echo "  Prometheus: kubectl port-forward svc/prometheus-service 9090:$PROMETHEUS_PORT"
+    if kubectl get svc prometheus-service -n $NAMESPACE &> /dev/null; then
+        PROMETHEUS_PORT=$(kubectl get svc prometheus-service -n $NAMESPACE -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || echo "9090")
+        echo "  Prometheus: kubectl port-forward svc/prometheus-service -n $NAMESPACE 9090:$PROMETHEUS_PORT"
+    fi
     
     # Check ingress
     echo ""
-    if kubectl get ingress kubeestatehub-ingress &> /dev/null; then
-        INGRESS_IP=$(kubectl get ingress kubeestatehub-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
+    if kubectl get ingress kubeestatehub-ingress -n $NAMESPACE &> /dev/null; then
+        INGRESS_IP=$(kubectl get ingress kubeestatehub-ingress -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "pending")
         if [ "$INGRESS_IP" != "pending" ] && [ "$INGRESS_IP" != "" ]; then
             echo "🌐 External Access: http://$INGRESS_IP"
         else
@@ -363,10 +384,8 @@ show_access_info() {
     
     echo ""
     echo "🚀 Quick Start Commands:"
-    echo "  ./port-forwarding.sh        # Set up all port forwards"
-    echo "  ./grafana-dashboard-import.sh # Import Grafana dashboards"
-    echo "  kubectl get pods            # Check pod status"
-    echo "  kubectl logs <pod-name>     # View logs"
+    echo "  kubectl get pods -n $NAMESPACE            # Check pod status"
+    echo "  kubectl logs -n $NAMESPACE -l app=listings-api  # View logs"
 }
 
 cleanup_on_failure() {

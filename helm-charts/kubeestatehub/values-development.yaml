@@ -1,0 +1,128 @@
+# Development environment Helm values
+# Location: /helm-charts/kubeestatehub/values-development.yaml
+
+global:
+  imageRegistry: "ghcr.io"
+  imagePullSecrets: []
+  storageClass: "standard"
+  postgresql:
+    auth:
+      postgresPassword: "dev-postgres-password"
+      username: "kubeestatehub"
+      password: "dev-kubeestatehub-password"
+      database: "kubeestatehub"
+
+app:
+  name: kubeestatehub
+  version: "1.0.0"
+  environment: "development"
+
+# Listings API configuration
+listingsApi:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: "kubeestatehub/listings-api"
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  autoscaling:
+    enabled: false
+
+# Analytics Worker configuration
+analyticsWorker:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: "kubeestatehub/analytics-worker"
+    tag: "latest"
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Frontend Dashboard configuration
+frontendDashboard:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: "kubeestatehub/frontend-dashboard"
+    tag: "latest"
+    pullPolicy: Always
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  autoscaling:
+    enabled: false
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "dev-postgres-password"
+    username: "kubeestatehub"
+    password: "dev-kubeestatehub-password"
+    database: "kubeestatehub"
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: "standard"
+  metrics:
+    enabled: false
+
+# Redis configuration
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+
+# Ingress configuration
+ingress:
+  enabled: false
+
+# Monitoring configuration
+monitoring:
+  enabled: false
+  prometheus:
+    enabled: false
+  grafana:
+    enabled: false
+
+# Security configuration
+security:
+  enabled: false
+  podSecurityPolicy:
+    enabled: false
+  networkPolicies:
+    enabled: false
+
+# Backup configuration
+backup:
+  enabled: false

@@ -1,0 +1,226 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init
+  namespace: kubeestatehub
+  labels:
+    app: db-init
+    app.kubernetes.io/name: db-init
+    app.kubernetes.io/component: database-setup
+    app.kubernetes.io/part-of: kubeestatehub
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  template:
+    metadata:
+      labels:
+        app: db-init
+    spec:
+      serviceAccountName: db-init-sa
+      restartPolicy: Never
+      containers:
+      - name: db-init
+        image: postgres:15.4-alpine
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PGHOST
+          value: "postgresql-db"
+        - name: PGPORT
+          value: "5432"
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: username
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: password
+        - name: PGDATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: db-configmap
+              key: database-name
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Waiting for database to be ready..."
+          for i in {1..30}; do
+            if pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER"; then
+              echo "Database is ready!"
+              break
+            fi
+            echo "Attempt $i: Database not ready, waiting..."
+            sleep 2
+          done
+          
+          echo "Running database initialization..."
+          psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" << 'EOF'
+-- Enable error on first failure
+\set ON_ERROR_STOP on
+
+-- Create extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "btree_gist";
+
+-- Create domain types
+CREATE DOMAIN email_address AS TEXT CHECK (VALUE ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$');
+CREATE DOMAIN currency AS NUMERIC(12, 2);
+
+-- Create ENUM types
+CREATE TYPE IF NOT EXISTS property_status AS ENUM ('active', 'sold', 'pending', 'withdrawn', 'expired', 'deleted');
+CREATE TYPE IF NOT EXISTS property_type_enum AS ENUM ('residential', 'commercial', 'industrial', 'land', 'multi-family');
+CREATE TYPE IF NOT EXISTS listing_status_enum AS ENUM ('new', 'updated', 'no_change', 'deleted');
+
+-- Create tables
+CREATE TABLE IF NOT EXISTS listings (
+    id SERIAL PRIMARY KEY,
+    mls_number VARCHAR(50) UNIQUE NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    property_type property_type_enum NOT NULL,
+    price NUMERIC(12, 2) NOT NULL,
+    bedrooms SMALLINT,
+    bathrooms NUMERIC(3,1),
+    square_feet INTEGER,
+    lot_size NUMERIC(8,2),
+    address VARCHAR(255) NOT NULL,
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(2) NOT NULL,
+    zip_code VARCHAR(10) NOT NULL,
+    latitude NUMERIC(10,7),
+    longitude NUMERIC(10,7),
+    listing_date DATE,
+    status property_status DEFAULT 'active' NOT NULL,
+    agent_name VARCHAR(100),
+    agent_email VARCHAR(255),
+    agent_phone VARCHAR(20),
+    image_url VARCHAR(500),
+    thumbnail_url VARCHAR(500),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT price_check CHECK (price > 0),
+    CONSTRAINT bedrooms_check CHECK (bedrooms >= 0),
+    CONSTRAINT bathrooms_check CHECK (bathrooms >= 0),
+    CONSTRAINT square_feet_check CHECK (square_feet > 0)
+);
+
+CREATE TABLE IF NOT EXISTS market_trends (
+    id SERIAL PRIMARY KEY,
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(2) NOT NULL,
+    property_type property_type_enum,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    total_listings INTEGER DEFAULT 0,
+    total_sales INTEGER DEFAULT 0,
+    avg_price NUMERIC(12, 2),
+    median_price NUMERIC(12, 2),
+    min_price NUMERIC(12, 2),
+    max_price NUMERIC(12, 2),
+    days_on_market_avg NUMERIC(5,1),
+    price_per_sqft_avg NUMERIC(8,2),
+    price_trend VARCHAR(20),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(city, state, property_type, period_start, period_end)
+);
+
+CREATE TABLE IF NOT EXISTS property_valuations (
+    id SERIAL PRIMARY KEY,
+    listing_id INTEGER NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+    valuation_date DATE NOT NULL,
+    estimated_value NUMERIC(12, 2) NOT NULL,
+    confidence_level NUMERIC(3,2),
+    calculation_method VARCHAR(100),
+    notes TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS analytics_events (
+    id BIGSERIAL PRIMARY KEY,
+    event_type VARCHAR(100) NOT NULL,
+    listing_id INTEGER REFERENCES listings(id) ON DELETE CASCADE,
+    event_data JSONB,
+    event_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_listings_city_state ON listings(city, state);
+CREATE INDEX IF NOT EXISTS idx_listings_status ON listings(status);
+CREATE INDEX IF NOT EXISTS idx_listings_property_type ON listings(property_type);
+CREATE INDEX IF NOT EXISTS idx_listings_price ON listings(price);
+CREATE INDEX IF NOT EXISTS idx_listings_created_at ON listings(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_listings_listing_date ON listings(listing_date DESC);
+CREATE INDEX IF NOT EXISTS idx_market_trends_city_state ON market_trends(city, state);
+CREATE INDEX IF NOT EXISTS idx_market_trends_period ON market_trends(period_start, period_end);
+CREATE INDEX IF NOT EXISTS idx_property_valuations_listing_id ON property_valuations(listing_id);
+CREATE INDEX IF NOT EXISTS idx_analytics_events_timestamp ON analytics_events(event_timestamp DESC);
+
+-- Create function for updating updated_at timestamp
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create triggers for timestamp updates
+DROP TRIGGER IF EXISTS listings_update_timestamp ON listings;
+CREATE TRIGGER listings_update_timestamp
+BEFORE UPDATE ON listings
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();
+
+DROP TRIGGER IF EXISTS market_trends_update_timestamp ON market_trends;
+CREATE TRIGGER market_trends_update_timestamp
+BEFORE UPDATE ON market_trends
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();
+
+DROP TRIGGER IF EXISTS property_valuations_update_timestamp ON property_valuations;
+CREATE TRIGGER property_valuations_update_timestamp
+BEFORE UPDATE ON property_valuations
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();
+
+-- Insert sample data
+INSERT INTO listings (mls_number, title, description, property_type, price, bedrooms, bathrooms, square_feet, address, city, state, zip_code, listing_date, status, agent_name, agent_email)
+VALUES 
+    ('MLS001', 'Beautiful Austin Home', 'Stunning 3 bed, 2 bath in downtown Austin', 'residential', 450000, 3, 2, 1800, '123 Main St', 'Austin', 'TX', '78701', CURRENT_DATE, 'active', 'John Realtor', 'john@realty.com'),
+    ('MLS002', 'Houston Commercial Space', 'Prime office space in Houston downtown', 'commercial', 750000, NULL, NULL, 5000, '456 Business Ave', 'Houston', 'TX', '77002', CURRENT_DATE - INTERVAL '30 days', 'active', 'Sarah Agent', 'sarah@realty.com'),
+    ('MLS003', 'Dallas Land Plot', 'Vacant land ready for development', 'land', 250000, NULL, NULL, 15000, '789 Empty Lot', 'Dallas', 'TX', '75201', CURRENT_DATE - INTERVAL '60 days', 'sold', 'Mike Broker', 'mike@realty.com')
+ON CONFLICT (mls_number) DO NOTHING;
+
+\echo 'Database initialization completed successfully!'
+EOF
+          
+          echo "Database initialization finished!"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: db-init-sa
+  namespace: kubeestatehub
+  labels:
+    app: db-init
+    app.kubernetes.io/component: database-setup
