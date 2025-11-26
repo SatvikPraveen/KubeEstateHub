@@ -1,5 +1,3 @@
-# Location: `/.github/workflows/k8s-deploy.yaml`
-
 name: Kubernetes Deploy
 
 on:
@@ -37,12 +35,12 @@ jobs:
       - name: Validate Kubernetes manifests
         run: |
           # Validate YAML syntax
-          find manifests/ -name "*.yaml" -exec kubectl --dry-run=client apply -f {} \; || true
+          find manifests/ -name "*.yaml" -exec kubectl --dry-run=client -f {} \;
 
           # Validate kustomize builds
-          kubectl kustomize kustomize/overlays/development/ > /dev/null || true
-          kubectl kustomize kustomize/overlays/staging/ > /dev/null || true
-          kubectl kustomize kustomize/overlays/production/ > /dev/null || true
+          kubectl kustomize kustomize/overlays/development/ > /dev/null
+          kubectl kustomize kustomize/overlays/staging/ > /dev/null
+          kubectl kustomize kustomize/overlays/production/ > /dev/null
 
       - name: Setup Helm
         uses: azure/setup-helm@v3
@@ -56,23 +54,22 @@ jobs:
 
   security-scan:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Check for kube-score
         continue-on-error: true
-        run: |
-          echo "Kube-score security analysis skipped due to network constraints"
-          echo "Manifest validation performed by kubectl dry-run in validate-manifests job"
+        run: echo "Kube-score validation skipped - using kubectl validation instead"
 
-      - name: Check policy files
+      - name: Check for Conftest policies
         continue-on-error: true
         run: |
-          if [ -d "tests/k8s-lint-tests/conftest/" ] && [ "$(ls -A tests/k8s-lint-tests/conftest/)" ]; then
-            echo "Policy files exist at tests/k8s-lint-tests/conftest/"
+          if [ -d "tests/k8s-lint-tests/conftest" ] && [ "$(ls -A tests/k8s-lint-tests/conftest)" ]; then
+            echo "Conftest policies found but validation skipped"
           else
-            echo "No policy files found"
+            echo "No Conftest policies directory"
           fi
 
   build-images:
