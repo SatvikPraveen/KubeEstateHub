@@ -8,6 +8,7 @@ numpy==1.25.2
 prometheus-client==0.19.0
 schedule==1.2.0
 python-dotenv==1.0.0
+requests==2.31.0
 kombu==5.3.4
 billiard==4.2.0
 vine==5.1.0

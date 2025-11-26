@@ -181,7 +181,7 @@ spec:
           app: postgresql-db
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: fast-ssd
+        storageClassName: "standard"
         resources:
           requests:
             storage: 50Gi
