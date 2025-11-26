@@ -98,35 +98,35 @@ Then open:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Kubernetes Cluster                    │
+│                    Kubernetes Cluster                   │
 ├─────────────────────────────────────────────────────────┤
-│                                                           │
+│                                                         │
 │  ┌──────────────────┐  ┌──────────────────────────────┐ │
 │  │   Frontend       │  │      Ingress / LoadBalancer  │ │
 │  │   Dashboard      │  │                              │ │
-│  └────────┬─────────┘  └──────────────┬───────────────┘ │
-│           │                          │                   │
+│  └────────┬─────────┘  └─────────────┬────────────────┘ │
+│           │                          │                  │
 │  ┌────────▼──────────────────────────▼──────────┐       │
-│  │         Listings API Service (3 replicas)     │       │
-│  │  • Property listings management               │       │
-│  │  • CRUD operations                            │       │
-│  │  • Caching & Rate limiting                    │       │
+│  │         Listings API Service (3 replicas)    │       │
+│  │  • Property listings management              │       │
+│  │  • CRUD operations                           │       │
+│  │  • Caching & Rate limiting                   │       │
 │  └────────────────┬─────────────────────────────┘       │
-│                   │                                      │
-│  ┌────────────────▼──────────┐ ┌──────────────────┐    │
+│                   │                                     │
+│  ┌────────────────▼───────────┐ ┌──────────────────┐    │
 │  │   PostgreSQL Database      │ │   Redis Cache    │    │
 │  │  • Schema & Indexes        │ │  • Session data  │    │
 │  │  • Market trends           │ │  • Cache layer   │    │
 │  │  • Property valuations     │ │  • Broker URL    │    │
 │  └────────────────────────────┘ └──────────────────┘    │
-│                                                           │
+│                                                         │
 │  ┌─────────────────────┐ ┌──────────────────────────┐   │
 │  │ Analytics Worker    │ │  Metrics Service         │   │
 │  │ • Market analysis   │ │  • Prometheus metrics    │   │
 │  │ • Trend calculation │ │  • Grafana dashboards    │   │
 │  │ • Valuations        │ │  • Health indicators     │   │
 │  └─────────────────────┘ └──────────────────────────┘   │
-│                                                           │
+│                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
 
