@@ -154,3 +154,28 @@ def test_metrics_service_against_postgres(clean_db):
         in text
     )
     assert "kubeestatehub_price_index " in text
+
+
+def test_api_readiness_requires_schema_version(clean_db):
+    import psycopg
+
+    from listings_api.app import create_app
+    from listings_api.cache import ResponseCache
+    from listings_api.config import Settings
+    from listings_api.repository import REQUIRED_SCHEMA_VERSION
+
+    client = create_app(
+        Settings(database_url=clean_db, rate_limit_enabled=False, trusted_proxies=0),
+        cache=ResponseCache(None, 1),
+    ).test_client()
+    assert client.get("/readyz").status_code == 200
+    with psycopg.connect(clean_db, autocommit=True) as conn:
+        conn.execute("DELETE FROM schema_migrations WHERE version = %s", (REQUIRED_SCHEMA_VERSION,))
+        try:
+            assert client.get("/readyz").status_code == 503
+            assert client.get("/livez").status_code == 200
+        finally:
+            conn.execute(
+                "INSERT INTO schema_migrations (version, checksum) VALUES (%s, 'test')",
+                (REQUIRED_SCHEMA_VERSION,),
+            )

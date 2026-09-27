@@ -220,3 +220,12 @@ def test_cache_degrades_on_redis_errors():
     cache.set("k", {"a": 1})
     cache.invalidate()
     assert cache.ping() is False
+
+
+def test_required_schema_version_is_the_newest_migration():
+    from pathlib import Path
+
+    from listings_api.repository import REQUIRED_SCHEMA_VERSION
+
+    migrations = sorted((Path(__file__).resolve().parents[3] / "db" / "migrations").glob("*.sql"))
+    assert migrations[-1].stem == REQUIRED_SCHEMA_VERSION, "bump REQUIRED_SCHEMA_VERSION with new migrations"

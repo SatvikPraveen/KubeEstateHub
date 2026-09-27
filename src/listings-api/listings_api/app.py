@@ -145,7 +145,9 @@ def create_app(
             deps.repo.ping()
         except Exception as exc:
             log.warning("readiness check failed: %s", exc)
-            return errors.problem(503, "Service Unavailable", "database unreachable")
+            return errors.problem(
+                503, "Service Unavailable", "database unreachable or schema not migrated"
+            )
         return jsonify(
             status="ready", database="ok", cache="ok" if deps.cache.ping() else "disabled"
         )

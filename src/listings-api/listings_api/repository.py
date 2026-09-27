@@ -49,6 +49,15 @@ SORTS = {
 }
 
 
+# Newest migration this code depends on. Readiness fails until it has been applied, so
+# pods never receive traffic against an older schema (the migrate Job runs concurrently).
+REQUIRED_SCHEMA_VERSION = "0002_analytics_schema"
+
+
+class SchemaNotReadyError(RuntimeError):
+    pass
+
+
 class DuplicateListingError(Exception):
     pass
 
@@ -113,7 +122,12 @@ class PostgresListingsRepository:
 
     def ping(self) -> None:
         with self._conn() as conn:
-            conn.execute("SELECT 1")
+            applied = conn.execute(
+                "SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = %s)",
+                (REQUIRED_SCHEMA_VERSION,),
+            ).fetchone()[0]
+        if not applied:
+            raise SchemaNotReadyError(f"schema migration {REQUIRED_SCHEMA_VERSION} not applied")
 
     def list_listings(
         self, query: ListingQuery, *, limit: int, offset: int

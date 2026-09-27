@@ -21,8 +21,16 @@ def database_url():
     with psycopg.connect(url, autocommit=True) as conn:
         conn.execute("DROP SCHEMA IF EXISTS public CASCADE")
         conn.execute("CREATE SCHEMA public")
+        conn.execute(
+            "CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, checksum TEXT NOT NULL, "
+            "applied_at TIMESTAMPTZ NOT NULL DEFAULT now())"
+        )
         for path in sorted(MIGRATIONS.glob("*.sql")):
             conn.execute(path.read_text())
+            conn.execute(
+                "INSERT INTO schema_migrations (version, checksum) VALUES (%s, 'test')",
+                (path.stem,),
+            )
     return url
 
 
