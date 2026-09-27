@@ -21,7 +21,7 @@ case "$arch" in
 esac
 ctos="$(uname -s)"
 
-fetch() { curl -fsSL --retry 3 "$1"; }
+fetch() { curl -fsSL --retry 3 "$@"; }
 
 if [[ ! -x "$BIN_DIR/helm" ]]; then
   fetch "https://get.helm.sh/helm-${HELM_VERSION}-${os}-${goarch}.tar.gz" |
@@ -44,10 +44,18 @@ if [[ ! -x "$BIN_DIR/kube-linter" ]]; then
     tar xz -C "$BIN_DIR" kube-linter
 fi
 if [[ ! -x "$BIN_DIR/kind" ]]; then
-  fetch "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-${os}-${goarch}" -o "$BIN_DIR/kind" 2>/dev/null ||
-    curl -fsSL --retry 3 -o "$BIN_DIR/kind" "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-${os}-${goarch}"
+  fetch -o "$BIN_DIR/kind" "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-${os}-${goarch}"
   chmod +x "$BIN_DIR/kind"
 fi
 
+if ! command -v kubectl >/dev/null 2>&1 && [[ ! -x "$BIN_DIR/kubectl" ]]; then
+  fetch -o "$BIN_DIR/kubectl" "https://dl.k8s.io/release/${KUBECTL_VERSION:-v1.31.2}/bin/${os}/${goarch}/kubectl"
+  chmod +x "$BIN_DIR/kubectl"
+fi
+
 echo "tools installed in $BIN_DIR:"
-ls -1 "$BIN_DIR"
+"$BIN_DIR/helm" version --short
+"$BIN_DIR/kubeconform" -v
+"$BIN_DIR/conftest" --version | head -1
+"$BIN_DIR/kube-linter" version
+"$BIN_DIR/kind" version
