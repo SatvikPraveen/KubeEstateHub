@@ -13,7 +13,8 @@ LABEL org.opencontainers.image.title="kubeestatehub-realestate-sync-operator" \
       org.opencontainers.image.source="https://github.com/SatvikPraveen/KubeEstateHub" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.revision="${CODE_VERSION}"
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/opt/venv/bin:${PATH}"
+# PYTHONPATH: the kopf console script does not put the working directory on sys.path
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/opt/venv/bin:${PATH}" PYTHONPATH=/app
 RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --no-create-home app
 COPY --from=build /opt/venv /opt/venv
 WORKDIR /app

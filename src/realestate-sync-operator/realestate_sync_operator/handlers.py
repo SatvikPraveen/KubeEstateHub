@@ -26,8 +26,8 @@ def operator_config() -> OperatorConfig:
         image=os.environ.get(
             "SYNC_IMAGE", "ghcr.io/satvikpraveen/kubeestatehub/analytics-worker:latest"
         ),
-        database_secret=os.getenv("DATABASE_SECRET_NAME", "db-secret"),
-        database_secret_key=os.getenv("DATABASE_SECRET_KEY", "database-url"),
+        database_secret=os.getenv("DATABASE_CREDENTIALS_REF", "db-secret"),
+        database_secret_key=os.getenv("DATABASE_CREDENTIALS_KEY", "database-url"),
         service_account=os.getenv("SYNC_SERVICE_ACCOUNT", "realestate-sync-job"),
     )
 
