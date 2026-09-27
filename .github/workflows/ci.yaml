@@ -1,0 +1,136 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  lint:
+    name: lint and typing
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: "**/requirements*.txt"
+      - run: pip install -r requirements-dev.txt pandas-stubs types-requests
+      - name: ruff
+        run: |
+          ruff check src tests hack scripts
+          ruff format --check src tests hack scripts
+      - name: mypy (per service)
+        run: |
+          for pkg in listings-api/listings_api analytics-worker/analytics_worker \
+                     metrics-service/metrics_service realestate-sync-operator/realestate_sync_operator; do
+            (cd "src/$(dirname "$pkg")" && mypy "$(basename "$pkg")" --config-file ../../pyproject.toml)
+          done
+      - name: yamllint
+        run: yamllint -s .
+      - name: shellcheck
+        run: shellcheck -x db/migrate.sh hack/*.sh scripts/*.sh
+      - name: hadolint
+        run: |
+          for f in src/*/Dockerfile; do
+            docker run --rm -i hadolint/hadolint:v2.12.0 hadolint - < "$f"
+          done
+      - name: frontend syntax
+        run: node --check src/frontend-dashboard/app.js
+
+  unit:
+    name: unit tests (py${{ matrix.python }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: "**/requirements*.txt"
+      - run: pip install -r requirements-dev.txt
+      - name: pytest (incl. statistical tests)
+        run: pytest --cov --cov-report=xml --cov-report=term-missing:skip-covered --cov-fail-under=85 --junitxml=reports/junit.xml
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: unit-reports-py${{ matrix.python }}
+          path: |
+            coverage.xml
+            reports/
+
+  integration:
+    name: integration tests (PostgreSQL 16)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16.4-alpine
+        env:
+          POSTGRES_USER: keh
+          POSTGRES_PASSWORD: keh
+          POSTGRES_DB: keh
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U keh" --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      PGHOST: localhost
+      PGUSER: keh
+      PGPASSWORD: keh
+      PGDATABASE: keh
+      DATABASE_URL: postgresql://keh:keh@localhost:5432/keh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: "**/requirements*.txt"
+      - run: pip install -r requirements-dev.txt
+      - name: migration runner is idempotent and tamper-evident
+        run: |
+          sh db/migrate.sh
+          sh db/migrate.sh | grep -q '0 applied'
+          cp -r db /tmp/db-tampered && echo '-- edited' >> /tmp/db-tampered/migrations/0001_core_schema.sql
+          set +e; sh /tmp/db-tampered/migrate.sh /tmp/db-tampered/migrations; rc=$?; set -e
+          test "$rc" -eq 2
+      - name: pytest -m integration
+        run: pytest -m integration tests/integration -v
+
+  benchmark:
+    name: estimator validation (Monte Carlo smoke)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: "**/requirements*.txt"
+      - run: pip install -r src/analytics-worker/requirements.txt
+      - name: benchmark (5 replications)
+        env:
+          PYTHONPATH: src/analytics-worker
+        run: |
+          python -m analytics_worker benchmark --replications 5 --format json > benchmark.json
+          python -m analytics_worker benchmark --replications 5 --format markdown | tee -a "$GITHUB_STEP_SUMMARY"
+          python hack/check_benchmark.py benchmark.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark
+          path: benchmark.json

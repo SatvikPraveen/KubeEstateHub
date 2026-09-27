@@ -1,0 +1,58 @@
+name: kubernetes
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kubernetes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: static validation (kubeconform, kube-linter, conftest, promtool, parity)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: pip install PyYAML==6.0.3
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bin
+          key: tools-${{ runner.os }}-${{ hashFiles('hack/install-tools.sh') }}
+      - run: hack/install-tools.sh
+      - run: hack/validate.sh
+
+  compose-e2e:
+    name: e2e (docker compose)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: scripts/e2e-compose.sh
+
+  kind-e2e:
+    name: e2e (kind, Kubernetes 1.31)
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: bin
+          key: tools-${{ runner.os }}-${{ hashFiles('hack/install-tools.sh') }}
+      - run: hack/install-tools.sh
+      - run: hack/kind-e2e.sh all
+      - name: diagnostics
+        if: failure()
+        run: |
+          kubectl get all,events -n kubeestatehub || true
+          kubectl logs -n kubeestatehub deploy/listings-api --tail=100 || true
+          kubectl logs -n kubeestatehub deploy/realestate-sync-operator --tail=100 || true

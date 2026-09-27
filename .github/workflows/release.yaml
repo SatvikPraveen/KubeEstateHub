@@ -1,0 +1,43 @@
+name: release
+
+# Triggered by pushing a version tag (vX.Y.Z). Images for the tag are published by the
+# images workflow; this job publishes the Helm chart to GHCR (OCI) and creates the
+# GitHub release with the matching CHANGELOG section.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v3.16.4
+      - name: check chart version matches tag
+        run: |
+          chart_version=$(grep '^version:' helm-charts/kubeestatehub/Chart.yaml | awk '{print $2}')
+          test "v${chart_version}" = "${GITHUB_REF_NAME}" || { echo "Chart.yaml version ${chart_version} != tag ${GITHUB_REF_NAME}"; exit 1; }
+      - name: package and push chart
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          helm package helm-charts/kubeestatehub -d dist
+          echo "$GH_TOKEN" | helm registry login ghcr.io -u "${{ github.actor }}" --password-stdin
+          helm push dist/kubeestatehub-*.tgz "oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts"
+      - name: release notes from CHANGELOG
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          test -s notes.md
+      - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          body_path: notes.md
+          files: dist/kubeestatehub-*.tgz
