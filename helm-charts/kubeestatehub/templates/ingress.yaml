@@ -1,0 +1,28 @@
+{{- if .Values.ingress.enabled }}
+{{- $i := .Values.ingress }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubeestatehub
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "kubeestatehub") | nindent 4 }}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 256k
+    nginx.ingress.kubernetes.io/enable-opentelemetry: "false"
+    {{- if and $i.tls.enabled $i.tls.clusterIssuer }}
+    cert-manager.io/cluster-issuer: {{ $i.tls.clusterIssuer }}
+    {{- end }}
+    {{- with $i.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  ingressClassName: {{ $i.className }}
+  {{- if $i.tls.enabled }}
+  tls: [{hosts: [{{ $i.host }}], secretName: {{ $i.tls.secretName }}}]
+  {{- end }}
+  rules:
+    - host: {{ $i.host }}
+      http:
+        paths:
+          - {path: /api, pathType: Prefix, backend: {service: {name: listings-api, port: {name: http}}}}
+          - {path: /, pathType: Prefix, backend: {service: {name: frontend, port: {name: http}}}}
+{{- end }}

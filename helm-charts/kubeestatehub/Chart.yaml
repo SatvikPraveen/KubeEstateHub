@@ -1,0 +1,19 @@
+apiVersion: v2
+name: kubeestatehub
+description: >-
+  Real-estate market analytics platform: listings API, dashboard, statistically validated
+  valuation pipeline, business/model-quality exporter and the RealEstateSync operator.
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+kubeVersion: ">=1.30.0-0"
+home: https://github.com/SatvikPraveen/KubeEstateHub
+sources: [https://github.com/SatvikPraveen/KubeEstateHub]
+keywords: [real-estate, analytics, hedonic-pricing, conformal-prediction, operator, slo]
+maintainers:
+  - name: Satvik Praveen
+    email: satvikpraveen707@gmail.com
+    url: https://github.com/SatvikPraveen
+annotations:
+  artifacthub.io/license: MIT
+  artifacthub.io/containsSecurityUpdates: "false"

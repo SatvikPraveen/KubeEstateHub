@@ -1,0 +1,134 @@
+{{- if .Values.operator.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: realestate-sync-operator
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "realestate-sync-operator" "component" "operator") | nindent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: realestate-sync-job
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "realestate-sync" "component" "sync-job") | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeestatehub-realestate-sync-operator
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "realestate-sync-operator" "component" "operator") | nindent 4 }}
+rules:
+  - apiGroups: [apiextensions.k8s.io]
+    resources: [customresourcedefinitions]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubeestatehub-realestate-sync-operator
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "realestate-sync-operator" "component" "operator") | nindent 4 }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeestatehub-realestate-sync-operator}
+subjects: [{kind: ServiceAccount, name: realestate-sync-operator, namespace: {{ .Release.Namespace }}}]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: realestate-sync-operator
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "realestate-sync-operator" "component" "operator") | nindent 4 }}
+rules:
+  - apiGroups: [realestate.kubeestatehub.io]
+    resources: [realestatesyncs]
+    verbs: [get, list, watch, patch]
+  - apiGroups: [realestate.kubeestatehub.io]
+    resources: [realestatesyncs/status]
+    verbs: [get, patch, update]
+  - apiGroups: [batch]
+    resources: [cronjobs]
+    verbs: [get, create, update, patch]
+  - apiGroups: [batch]
+    resources: [cronjobs/status]
+    verbs: [get]
+  - apiGroups: ["", events.k8s.io]
+    resources: [events]
+    verbs: [create, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: realestate-sync-operator
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "realestate-sync-operator" "component" "operator") | nindent 4 }}
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: realestate-sync-operator}
+subjects: [{kind: ServiceAccount, name: realestate-sync-operator}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: realestate-sync-operator
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "realestate-sync-operator" "component" "operator") | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: realestate-sync-operator}
+  template:
+    metadata:
+      labels: {{- include "keh.podLabels" (dict "name" "realestate-sync-operator" "component" "operator") | nindent 8 }}
+    spec:
+      serviceAccountName: realestate-sync-operator
+      securityContext: {{- include "keh.podSecurityContext" (dict "uid" 10001) | nindent 8 }}
+      containers:
+        - name: operator
+          image: {{ include "keh.image" (dict "ctx" . "name" "realestate-sync-operator") }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args: ["--namespace={{ .Release.Namespace }}"]
+          env:
+            - {name: SYNC_IMAGE, value: {{ include "keh.image" (dict "ctx" . "name" "analytics-worker") | quote }}}
+            - {name: SYNC_SERVICE_ACCOUNT, value: realestate-sync-job}
+            - {name: DATABASE_CREDENTIALS_REF, value: db-secret}
+          ports: [{name: health, containerPort: 8081}]
+          resources: {{- toYaml .Values.operator.resources | nindent 12 }}
+          securityContext: {{- include "keh.containerSecurityContext" . | nindent 12 }}
+          readinessProbe:
+            httpGet: {path: /healthz, port: health}
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /healthz, port: health}
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 32Mi}}
+{{- if .Values.networkPolicies.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: realestate-sync-operator
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "realestate-sync-operator" "component" "operator") | nindent 4 }}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: realestate-sync-operator}}
+  policyTypes: [Egress]
+  egress:
+    - ports: [{port: 443}, {port: 6443}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: realestate-sync-feeds
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "realestate-sync" "component" "sync-job") | nindent 4 }}
+  annotations:
+    ignore-check.kube-linter.io/dangling-networkpolicy: selects Job pods that the operator creates at runtime
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: realestate-sync}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16]
+      ports: [{port: 443}]
+{{- end }}
+{{- end }}

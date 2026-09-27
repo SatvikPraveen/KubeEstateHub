@@ -1,0 +1,42 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: analytics-pipeline
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "analytics-pipeline" "component" "analytics") | nindent 4 }}
+spec:
+  schedule: {{ .Values.analytics.schedule | quote }}
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels: {{- include "keh.podLabels" (dict "name" "analytics-pipeline" "component" "analytics") | nindent 12 }}
+        spec:
+          restartPolicy: Never
+          serviceAccountName: analytics
+          automountServiceAccountToken: false
+          securityContext: {{- include "keh.podSecurityContext" (dict "uid" 10001) | nindent 12 }}
+          containers:
+            - name: pipeline
+              image: {{ include "keh.image" (dict "ctx" . "name" "analytics-worker") }}
+              imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+              args: [pipeline]
+              env:
+                {{- include "keh.dbEnv" . | nindent 16 }}
+                - {name: PIPELINE_SEED, value: {{ .Values.analytics.seed | quote }}}
+                - {name: LOG_FORMAT, value: json}
+                {{- with .Values.analytics.pushgatewayUrl }}
+                - {name: PUSHGATEWAY_URL, value: {{ . | quote }}}
+                {{- end }}
+              resources: {{- toYaml .Values.analytics.resources | nindent 16 }}
+              securityContext: {{- include "keh.containerSecurityContext" . | nindent 16 }}
+              volumeMounts: [{name: tmp, mountPath: /tmp}]
+          volumes:
+            - {name: tmp, emptyDir: {sizeLimit: 256Mi}}

@@ -1,0 +1,124 @@
+# Default values for kubeestatehub. Resource names are fixed (not release-prefixed):
+# the dashboard proxies to the Service "listings-api" and the NetworkPolicies select by
+# app.kubernetes.io/name, so install one release per namespace.
+
+global:
+  imageRegistry: ghcr.io/satvikpraveen/kubeestatehub
+  imageTag: ""                  # defaults to .Chart.AppVersion
+  imagePullPolicy: IfNotPresent
+
+environment: base
+
+secrets:
+  # create=true renders db-secret/api-secret from these values (local/dev only).
+  # Otherwise provide them via externalSecrets or create them before installing.
+  create: false
+  dbUsername: kubeestatehub
+  dbPassword: ""
+  writeToken: ""
+
+externalSecrets:
+  enabled: false
+  storeKind: ClusterSecretStore
+  storeName: kubeestatehub
+  refreshInterval: 1h
+  postgresKey: kubeestatehub/ENV/postgres    # properties: username, password
+  apiKey: kubeestatehub/ENV/api              # property: write-token
+
+namespaceQuota:
+  enabled: true
+  requestsCpu: "8"
+  requestsMemory: 16Gi
+  limitsMemory: 32Gi
+
+listingsApi:
+  replicas: 2
+  resources:
+    requests: {cpu: 100m, memory: 192Mi}
+    limits: {memory: 384Mi}
+  autoscaling: {enabled: true, minReplicas: 2, maxReplicas: 10, targetCPUUtilizationPercentage: 70}
+  pdb: {minAvailable: 1}
+  config:
+    REDIS_URL: redis://redis:6379/0
+    DEFAULT_PAGE_SIZE: "20"
+    MAX_PAGE_SIZE: "100"
+    CACHE_TTL_SECONDS: "300"
+    RATE_LIMIT_DEFAULT: 600 per minute
+    RATE_LIMIT_WRITE: 30 per minute
+    TRUSTED_PROXIES: "1"
+    DB_POOL_MAX: "10"
+    DB_STATEMENT_TIMEOUT_MS: "5000"
+    GUNICORN_WORKERS: "2"
+    GUNICORN_THREADS: "4"
+    LOG_LEVEL: INFO
+
+frontend:
+  replicas: 2
+  resources:
+    requests: {cpu: 20m, memory: 32Mi}
+    limits: {memory: 128Mi}
+  autoscaling: {enabled: true, minReplicas: 2, maxReplicas: 6, targetCPUUtilizationPercentage: 70}
+  pdb: {minAvailable: 1}
+
+metricsService:
+  resources:
+    requests: {cpu: 20m, memory: 96Mi}
+    limits: {memory: 192Mi}
+  cacheTtlSeconds: 30
+
+analytics:
+  schedule: "30 2 * * *"
+  seed: 0
+  pushgatewayUrl: ""
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {memory: 2Gi}
+
+postgres:
+  image: postgres:16.4-alpine
+  exporterImage: quay.io/prometheuscommunity/postgres-exporter:v0.15.0
+  storage: 10Gi
+  storageClassName: ""
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {memory: 1Gi}
+
+redis:
+  image: redis:7.4-alpine
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {memory: 256Mi}
+
+ingress:
+  enabled: true
+  className: nginx
+  host: kubeestatehub.localtest.me
+  annotations: {}
+  tls:
+    enabled: false
+    secretName: kubeestatehub-tls
+    clusterIssuer: ""
+
+networkPolicies:
+  enabled: true
+  ingressNamespace: ingress-nginx
+  monitoringNamespace: monitoring
+
+monitoring:
+  enabled: false                # requires prometheus-operator CRDs
+
+operator:
+  enabled: true
+  resources:
+    requests: {cpu: 20m, memory: 96Mi}
+    limits: {memory: 256Mi}
+
+admissionPolicy:
+  enabled: true
+  validationActions: [Deny]
+
+backup:
+  enabled: false
+  schedule: "0 1 * * *"
+  retentionDays: 14
+  storage: 20Gi

@@ -1,0 +1,49 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: listings-api
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "listings-api") | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: listings-api}
+  endpoints: [{port: http, path: /metrics, interval: 15s}]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: metrics-service
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "metrics-service") | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: metrics-service}
+  endpoints: [{port: metrics, path: /metrics, interval: 60s, scrapeTimeout: 20s}]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "postgres") | nindent 4 }}
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: postgres}
+  endpoints: [{port: metrics, interval: 30s}]
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kubeestatehub
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "kubeestatehub") | nindent 4 }}
+spec:
+{{ .Files.Get "files/rules.yaml" | indent 2 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubeestatehub-dashboards
+  labels:
+    {{- include "keh.labels" (dict "ctx" . "name" "kubeestatehub") | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+{{ (.Files.Glob "files/dashboards/*.json").AsConfig | indent 2 }}
+{{- end }}

@@ -1,0 +1,20 @@
+KubeEstateHub {{ .Chart.AppVersion }} installed into namespace {{ .Release.Namespace }}.
+
+1. The namespace must enforce the restricted Pod Security Standard:
+     kubectl label namespace {{ .Release.Namespace }} pod-security.kubernetes.io/enforce=restricted --overwrite
+
+2. Database migrations run as the post-install/upgrade hook Job "db-migrate". The API
+   reports ready only once the schema version it needs is present:
+     kubectl -n {{ .Release.Namespace }} get job db-migrate
+
+{{- if .Values.ingress.enabled }}
+3. Open http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}/
+   (API docs: /openapi.json)
+{{- else }}
+3. kubectl -n {{ .Release.Namespace }} port-forward svc/frontend 3000:8080  and open http://localhost:3000
+{{- end }}
+
+4. Run the analytics pipeline now instead of waiting for {{ .Values.analytics.schedule }} UTC:
+     kubectl -n {{ .Release.Namespace }} create job analytics-now --from=cronjob/analytics-pipeline
+
+5. helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

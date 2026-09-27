@@ -1,0 +1,37 @@
+# Runs after install/upgrade (PostgreSQL must exist first). before-hook-creation replaces
+# the previous Job, sidestepping Job template immutability across releases.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-migrate
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "db-migrate" "component" "database") | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-weight: "0"
+    helm.sh/hook-delete-policy: before-hook-creation
+    checksum/migrations: {{ (.Files.Glob "files/db/*").AsConfig | sha256sum }}
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels: {{- include "keh.podLabels" (dict "name" "db-migrate" "component" "database") | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: postgres
+      automountServiceAccountToken: false
+      securityContext: {{- include "keh.podSecurityContext" (dict "uid" 70) | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ .Values.postgres.image }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          command: [sh, /db/migrations/migrate.sh, /db/migrations]
+          env: {{- include "keh.pgEnv" . | nindent 12 }}
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {memory: 128Mi}
+          securityContext: {{- include "keh.containerSecurityContext" . | nindent 12 }}
+          volumeMounts: [{name: migrations, mountPath: /db/migrations, readOnly: true}]
+      volumes:
+        - name: migrations
+          configMap: {name: db-migrations}

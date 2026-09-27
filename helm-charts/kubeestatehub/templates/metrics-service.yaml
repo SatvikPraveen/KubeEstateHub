@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-service
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "metrics-service" "component" "exporter") | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: metrics-service}
+  template:
+    metadata:
+      labels: {{- include "keh.podLabels" (dict "name" "metrics-service" "component" "exporter") | nindent 8 }}
+    spec:
+      serviceAccountName: metrics-service
+      automountServiceAccountToken: false
+      securityContext: {{- include "keh.podSecurityContext" (dict "uid" 10001) | nindent 8 }}
+      containers:
+        - name: exporter
+          image: {{ include "keh.image" (dict "ctx" . "name" "metrics-service") }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports: [{name: metrics, containerPort: 8080}]
+          env:
+            {{- include "keh.dbEnv" . | nindent 12 }}
+            - {name: CACHE_TTL_SECONDS, value: {{ .Values.metricsService.cacheTtlSeconds | quote }}}
+          resources: {{- toYaml .Values.metricsService.resources | nindent 12 }}
+          securityContext: {{- include "keh.containerSecurityContext" . | nindent 12 }}
+          readinessProbe:
+            httpGet: {path: /readyz, port: metrics}
+            periodSeconds: 15
+          livenessProbe:
+            httpGet: {path: /livez, port: metrics}
+            periodSeconds: 30
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 32Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: metrics-service
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "metrics-service" "component" "exporter") | nindent 4 }}
+spec:
+  selector: {app.kubernetes.io/name: metrics-service}
+  ports: [{name: metrics, port: 8080, targetPort: metrics}]

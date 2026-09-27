@@ -1,0 +1,20 @@
+environment: development
+global:
+  imageTag: main
+secrets:
+  create: true
+  dbPassword: kubeestatehub-dev      # development only
+  writeToken: dev-write-token
+listingsApi:
+  replicas: 1
+  autoscaling: {minReplicas: 1}
+  pdb: {minAvailable: 0}
+  config: {LOG_LEVEL: DEBUG, GUNICORN_WORKERS: "1"}
+frontend:
+  replicas: 1
+  autoscaling: {minReplicas: 1}
+  pdb: {minAvailable: 0}
+postgres:
+  storage: 2Gi
+admissionPolicy:
+  validationActions: [Warn, Audit]

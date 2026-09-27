@@ -1,0 +1,79 @@
+{{- $v := .Values.frontend }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "frontend" "component" "ui") | nindent 4 }}
+spec:
+  replicas: {{ $v.replicas }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels: {app.kubernetes.io/name: frontend}
+  template:
+    metadata:
+      labels: {{- include "keh.podLabels" (dict "name" "frontend" "component" "ui") | nindent 8 }}
+    spec:
+      serviceAccountName: frontend
+      automountServiceAccountToken: false
+      securityContext: {{- include "keh.podSecurityContext" (dict "uid" 101) | nindent 8 }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: {matchLabels: {app.kubernetes.io/name: frontend}}
+      containers:
+        - name: nginx
+          image: {{ include "keh.image" (dict "ctx" . "name" "frontend-dashboard") }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports: [{name: http, containerPort: 8080}]
+          resources: {{- toYaml $v.resources | nindent 12 }}
+          securityContext: {{- include "keh.containerSecurityContext" . | nindent 12 }}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 20
+          lifecycle:
+            preStop: {sleep: {seconds: 5}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 64Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "frontend" "component" "ui") | nindent 4 }}
+spec:
+  selector: {app.kubernetes.io/name: frontend}
+  ports: [{name: http, port: 8080, targetPort: http}]
+{{- if $v.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "frontend" "component" "ui") | nindent 4 }}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: frontend}
+  minReplicas: {{ $v.autoscaling.minReplicas }}
+  maxReplicas: {{ $v.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: {{ $v.autoscaling.targetCPUUtilizationPercentage }}}}
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "frontend" "component" "ui") | nindent 4 }}
+spec:
+  minAvailable: {{ $v.pdb.minAvailable }}
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels: {app.kubernetes.io/name: frontend}

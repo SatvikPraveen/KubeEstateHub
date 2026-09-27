@@ -1,0 +1,13 @@
+environment: staging
+externalSecrets:
+  enabled: true
+  postgresKey: kubeestatehub/staging/postgres
+  apiKey: kubeestatehub/staging/api
+ingress:
+  host: staging.kubeestatehub.example.com
+monitoring:
+  enabled: true
+backup:
+  enabled: true
+admissionPolicy:
+  validationActions: [Warn, Audit]

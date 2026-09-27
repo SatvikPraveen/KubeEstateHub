@@ -1,0 +1,98 @@
+{{- $v := .Values.listingsApi }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: listings-api
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "listings-api" "component" "api") | nindent 4 }}
+spec:
+  replicas: {{ $v.replicas }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  selector:
+    matchLabels: {app.kubernetes.io/name: listings-api}
+  template:
+    metadata:
+      labels: {{- include "keh.podLabels" (dict "name" "listings-api" "component" "api") | nindent 8 }}
+      annotations:
+        checksum/config: {{ toJson $v.config | sha256sum }}
+    spec:
+      serviceAccountName: listings-api
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext: {{- include "keh.podSecurityContext" (dict "uid" 10001) | nindent 8 }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector: {matchLabels: {app.kubernetes.io/name: listings-api}}
+      containers:
+        - name: api
+          image: {{ include "keh.image" (dict "ctx" . "name" "listings-api") }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          ports: [{name: http, containerPort: 8080}]
+          envFrom: [{configMapRef: {name: listings-api-config}}]
+          env:
+            {{- include "keh.dbEnv" . | nindent 12 }}
+            - name: API_WRITE_TOKEN
+              valueFrom: {secretKeyRef: {name: api-secret, key: write-token}}
+          resources: {{- toYaml $v.resources | nindent 12 }}
+          securityContext: {{- include "keh.containerSecurityContext" . | nindent 12 }}
+          startupProbe:
+            httpGet: {path: /livez, port: http}
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: {path: /livez, port: http}
+            periodSeconds: 20
+            timeoutSeconds: 3
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          lifecycle:
+            preStop: {sleep: {seconds: 5}}
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes:
+        - {name: tmp, emptyDir: {sizeLimit: 128Mi}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: listings-api
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "listings-api" "component" "api") | nindent 4 }}
+spec:
+  selector: {app.kubernetes.io/name: listings-api}
+  ports: [{name: http, port: 8080, targetPort: http}]
+{{- if $v.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: listings-api
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "listings-api" "component" "api") | nindent 4 }}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: listings-api}
+  minReplicas: {{ $v.autoscaling.minReplicas }}
+  maxReplicas: {{ $v.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource: {name: cpu, target: {type: Utilization, averageUtilization: {{ $v.autoscaling.targetCPUUtilizationPercentage }}}}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies: [{type: Percent, value: 50, periodSeconds: 60}]
+{{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: listings-api
+  labels: {{- include "keh.labels" (dict "ctx" . "name" "listings-api" "component" "api") | nindent 4 }}
+spec:
+  minAvailable: {{ $v.pdb.minAvailable }}
+  unhealthyPodEvictionPolicy: AlwaysAllow
+  selector:
+    matchLabels: {app.kubernetes.io/name: listings-api}
