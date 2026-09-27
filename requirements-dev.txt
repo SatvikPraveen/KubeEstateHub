@@ -1,0 +1,15 @@
+# Developer / CI tooling. Service runtime dependencies live in src/*/requirements.txt.
+-r src/listings-api/requirements.txt
+-r src/analytics-worker/requirements.txt
+-r src/metrics-service/requirements.txt
+-r src/realestate-sync-operator/requirements.txt
+pytest==9.1.1
+pytest-cov==7.1.0
+pytest-timeout==2.4.0
+hypothesis==6.168.2
+scipy==1.18.1   # reference implementations for cross-checks in tests
+PyYAML==6.0.3
+ruff==0.16.9
+mypy==2.3.1
+yamllint==1.38.0
+pre-commit==4.6.2

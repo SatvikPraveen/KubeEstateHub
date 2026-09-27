@@ -1,69 +1,88 @@
-# Location: `/manifests/operators/realestate-sync-crd.yaml`
-
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: realestatesyncs.realestate.kubeestatehub.io
   labels:
-    app.kubernetes.io/name: realestate-sync-crd
+    app.kubernetes.io/name: realestate-sync-operator
     app.kubernetes.io/component: operator
     app.kubernetes.io/part-of: kubeestatehub
 spec:
   group: realestate.kubeestatehub.io
+  scope: Namespaced
+  names:
+    plural: realestatesyncs
+    singular: realestatesync
+    kind: RealEstateSync
+    shortNames: [res, resync]
+    categories: [realestate]
   versions:
     - name: v1
       served: true
       storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - {name: Source, type: string, jsonPath: .spec.source.type}
+        - {name: Schedule, type: string, jsonPath: .spec.schedule}
+        - {name: Phase, type: string, jsonPath: .status.phase}
+        - {name: Last Sync, type: date, jsonPath: .status.lastSyncTime}
+        - {name: Age, type: date, jsonPath: .metadata.creationTimestamp}
       schema:
         openAPIV3Schema:
           type: object
+          description: Periodically ingests listings from an external feed into the platform database.
+          required: [spec]
           properties:
             spec:
               type: object
+              required: [source, schedule]
               properties:
                 source:
                   type: object
+                  required: [type, endpoint]
                   properties:
                     type:
                       type: string
-                      enum: ["mls", "api", "csv", "xml"]
+                      enum: [csv, api]
+                      description: "csv: CSV file over HTTP(S); api: JSON list or {listings: [...]} over HTTP(S)"
                     endpoint:
                       type: string
-                    apiKey:
-                      type: string
+                      pattern: '^https?://'
+                      maxLength: 2048
                     credentials:
                       type: object
+                      description: Bearer token for the feed. Plaintext credentials are intentionally not supported.
                       properties:
                         secretRef:
                           type: object
+                          required: [name, key]
                           properties:
-                            name:
-                              type: string
-                            key:
-                              type: string
-                  required:
-                    - type
-                    - endpoint
+                            name: {type: string}
+                            key: {type: string}
                 schedule:
                   type: string
-                  pattern: '^(@(annually|yearly|monthly|weekly|daily|hourly|reboot))|(@every (\d+(ns|us|µs|ms|s|m|h))+)|((((\d+,)+\d+|(\d+(\/|-)\d+)|\d+|\*) ?){5,7})$'
+                  description: Kubernetes CronJob schedule (5-field cron or @hourly/@daily/@weekly/@monthly/@yearly).
+                  pattern: '^(@(yearly|annually|monthly|weekly|daily|midnight|hourly)|(\S+\s+){4}\S+)$'
+                timeZone:
+                  type: string
+                  default: Etc/UTC
+                suspend:
+                  type: boolean
+                  default: false
                 syncConfig:
                   type: object
                   properties:
-                    batchSize:
-                      type: integer
-                      minimum: 1
-                      maximum: 1000
-                      default: 100
-                    retryLimit:
+                    batchSize: {type: integer, minimum: 1, maximum: 1000, default: 100}
+                    retryLimit: {type: integer, minimum: 0, maximum: 10, default: 3}
+                    maxFailedRecords:
                       type: integer
                       minimum: 0
-                      maximum: 10
-                      default: 3
+                      default: 0
+                      description: Job fails if more records than this fail validation.
                     timeout:
                       type: string
-                      pattern: '^([0-9]+(\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$'
-                      default: "30m"
+                      pattern: '^([0-9]+(\.[0-9]+)?(ms|s|m|h))+$'
+                      default: 30m
                     filters:
                       type: object
                       properties:
@@ -71,130 +90,39 @@ spec:
                           type: array
                           items:
                             type: string
-                            enum:
-                              [
-                                "residential",
-                                "commercial",
-                                "industrial",
-                                "land",
-                              ]
+                            enum: [residential, commercial, industrial, land, multi_family]
                         priceRange:
                           type: object
                           properties:
-                            min:
-                              type: integer
-                              minimum: 0
-                            max:
-                              type: integer
-                              minimum: 0
+                            min: {type: integer, minimum: 0}
+                            max: {type: integer, minimum: 0}
+                          x-kubernetes-validations:
+                            - rule: '!has(self.min) || !has(self.max) || self.min <= self.max'
+                              message: priceRange.min must not exceed priceRange.max
                         location:
                           type: object
                           properties:
-                            city:
-                              type: string
-                            state:
-                              type: string
-                            zipCode:
-                              type: string
-                            radius:
-                              type: integer
-                              minimum: 1
-                              maximum: 100
-                destination:
-                  type: object
-                  properties:
-                    database:
-                      type: object
-                      properties:
-                        connectionString:
-                          type: string
-                        table:
-                          type: string
-                          default: "listings"
-                    webhook:
-                      type: object
-                      properties:
-                        url:
-                          type: string
-                        method:
-                          type: string
-                          enum: ["POST", "PUT", "PATCH"]
-                          default: "POST"
-                        headers:
-                          type: object
-                          additionalProperties:
-                            type: string
-              required:
-                - source
-                - schedule
-                - destination
+                            city: {type: string, maxLength: 100}
+                            state: {type: string, pattern: '^[A-Za-z]{2}$'}
             status:
               type: object
               properties:
+                phase:
+                  type: string
+                  enum: [Pending, Running, Completed, Failed, Paused]
+                observedGeneration: {type: integer}
+                activeJobs: {type: integer}
+                lastScheduleTime: {type: string, format: date-time}
+                lastSyncTime: {type: string, format: date-time}
                 conditions:
                   type: array
                   items:
                     type: object
+                    required: [type, status]
                     properties:
-                      type:
-                        type: string
-                      status:
-                        type: string
-                        enum: ["True", "False", "Unknown"]
-                      lastTransitionTime:
-                        type: string
-                        format: date-time
-                      reason:
-                        type: string
-                      message:
-                        type: string
-                    required:
-                      - type
-                      - status
-                lastSyncTime:
-                  type: string
-                  format: date-time
-                nextSyncTime:
-                  type: string
-                  format: date-time
-                recordsProcessed:
-                  type: integer
-                  minimum: 0
-                recordsSuccess:
-                  type: integer
-                  minimum: 0
-                recordsFailure:
-                  type: integer
-                  minimum: 0
-                phase:
-                  type: string
-                  enum: ["Pending", "Running", "Completed", "Failed", "Paused"]
-      additionalPrinterColumns:
-        - name: Source Type
-          type: string
-          jsonPath: .spec.source.type
-        - name: Schedule
-          type: string
-          jsonPath: .spec.schedule
-        - name: Phase
-          type: string
-          jsonPath: .status.phase
-        - name: Last Sync
-          type: string
-          jsonPath: .status.lastSyncTime
-        - name: Records Processed
-          type: integer
-          jsonPath: .status.recordsProcessed
-        - name: Age
-          type: date
-          jsonPath: .metadata.creationTimestamp
-  scope: Namespaced
-  names:
-    plural: realestatesyncs
-    singular: realestatesync
-    kind: RealEstateSync
-    shortNames:
-      - res
-      - resync
-    categories:
-      - realestate
+                      type: {type: string}
+                      status: {type: string, enum: ["True", "False", "Unknown"]}
+                      reason: {type: string}
+                      message: {type: string}
+                      lastTransitionTime: {type: string, format: date-time}
+              x-kubernetes-preserve-unknown-fields: true
