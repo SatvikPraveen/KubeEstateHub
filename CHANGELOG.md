@@ -56,7 +56,7 @@ be deployed:
   * gating lint and typing, unit tests on 3.12 and 3.13, PostgreSQL integration and an
     estimator benchmark
   * multi-arch images with Trivy gate, SBOM, SLSA provenance and cosign signatures
-  * CodeQL, gitleaks, Trivy IaC scanning, dependency review, Dependabot and an OCI chart
+  * CodeQL, gitleaks, Trivy IaC scanning, dependency review and an OCI chart
     release
 * ADRs, a threat model, `CITATION.cff` and `SECURITY.md`.
 

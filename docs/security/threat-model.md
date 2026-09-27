@@ -21,7 +21,7 @@ Assets, in order of sensitivity:
 | 9 | **I**nformation disclosure: service-account token theft | pods | `automountServiceAccountToken: false` everywhere except the operator; operator RBAC is namespaced and least-privilege | conftest `kubernetes.rbac`, kube-linter |
 | 10 | **D**enial of service | API | per-client and write rate limits, 256 KiB body limit, statement timeout, HPA, PDB; the rate limiter fails open if Redis is down | load test, chaos experiments |
 | 11 | **E**levation of privilege: container escape | all pods | PSA `restricted`, non-root UIDs, read-only rootfs, all capabilities dropped, seccomp RuntimeDefault; admission policy rejects deviations | conftest, admission policy (kind e2e) |
-| 12 | Supply chain: compromised dependency or image | build | pinned dependencies, Dependabot, Trivy gate on fixable HIGH/CRITICAL, SBOM + SLSA provenance, cosign keyless signatures; actions pinned by commit SHA | `images` workflow |
+| 12 | Supply chain: compromised dependency or image | build | pinned dependencies (updated manually), Trivy gate on fixable HIGH/CRITICAL, SBOM + SLSA provenance, cosign keyless signatures; actions pinned by commit SHA | `images` workflow |
 | 13 | Supply chain: malicious CI change | workflows | least-privilege `permissions:` per job; `id-token` only where signing needs it; CodeQL on the `actions` language | `security` workflow |
 
 ## Residual risks and next steps
