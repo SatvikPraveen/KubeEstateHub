@@ -11,10 +11,12 @@ make e2e         # 13 end-to-end checks on a fresh stack
 make down
 ```
 
-Writes need the token, which defaults to `local-dev-token`:
+Writes need the bearer token. The compose default comes from `API_WRITE_TOKEN` in
+`docker-compose.yml`; set your own before `make up`:
 
 ```bash
-curl -X POST localhost:8080/api/v1/listings -H 'Authorization: Bearer local-dev-token' \
+export API_WRITE_TOKEN="$(openssl rand -hex 16)"   # before `make up`
+curl -X POST localhost:8080/api/v1/listings -H "Authorization: Bearer ${API_WRITE_TOKEN}" \
   -H 'Content-Type: application/json' -d '{"mls_number":"A-1","title":"Test","property_type":"residential",
   "price":450000,"address":"1 Main","city":"Austin","state":"TX","zip_code":"78701","square_feet":1800}'
 ```

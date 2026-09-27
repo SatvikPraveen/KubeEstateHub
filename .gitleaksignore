@@ -4,3 +4,6 @@
 # new finding still fails CI.
 30cb706bcdc2c6b43b8ba35e26675f86f8377999:docs/debugging-guide.md:curl-auth-user:506
 30cb706bcdc2c6b43b8ba35e26675f86f8377999:manifests/monitoring/grafana-deployment.yaml:generic-api-key:185
+# docs example that used the documented local docker-compose default token (not a secret);
+# the example now reads $API_WRITE_TOKEN instead.
+9ad888fac43205c39a3cd687b298e58a4a870eab:docs/getting-started.md:curl-auth-header:17
