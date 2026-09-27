@@ -72,3 +72,62 @@ def test_sync_records_satisfy_database_constraints(clean_db):
     valid, res = validate_records(rows)
     assert res.failed == 0
     assert PostgresRepository(clean_db).upsert_listings(valid) == 1
+
+
+def test_listings_api_against_postgres(clean_db):
+    from listings_api.app import create_app
+    from listings_api.cache import ResponseCache
+    from listings_api.config import Settings
+
+    repo = PostgresRepository(clean_db)
+    df, _ = generate_market(900, seed=9, start=date(2024, 9, 1), months=15)
+    repo.upsert_listings(df.to_dict("records"))
+    run_pipeline(repo, PipelineConfig(as_of=date(2025, 11, 30), seed=1, cv_folds=3))
+
+    settings = Settings(database_url=clean_db, rate_limit_enabled=False, trusted_proxies=0)
+    client = create_app(settings, cache=ResponseCache(None, 1)).test_client()
+    assert client.get("/readyz").status_code == 200
+
+    page = client.get("/api/v1/listings?city=Austin&sort=-price&per_page=5").json
+    prices = [row["price"] for row in page["listings"]]
+    assert prices == sorted(prices, reverse=True)
+    assert page["pagination"]["total"] == int(
+        ((df.city == "Austin") & (df.status == "active")).sum()
+    )
+
+    listing_id = page["listings"][0]["id"]
+    detail = client.get(f"/api/v1/listings/{listing_id}").json["listing"]
+    assert detail["valuation"]["interval_low"] < detail["valuation"]["estimated_value"]
+
+    created = client.post(
+        "/api/v1/listings",
+        json={
+            "mls_number": "IT-1",
+            "title": "Integration home",
+            "property_type": "residential",
+            "price": 500000,
+            "address": "2 Test Rd",
+            "city": "Austin",
+            "state": "TX",
+            "zip_code": "78702",
+            "square_feet": 2000,
+        },
+    )
+    assert created.status_code == 201
+    assert created.json["listing"]["price_per_sqft"] == 250.0
+    new_id = created.json["listing"]["id"]
+    assert (
+        client.post("/api/v1/listings", json={**created.json["listing"]} | {"id": None}).status_code
+        == 422
+    )
+    conflict = client.patch(f"/api/v1/listings/{new_id}", json={"status": "sold"})
+    assert conflict.status_code == 422  # DB check constraint surfaces as problem details
+    assert client.delete(f"/api/v1/listings/{new_id}").status_code == 204
+
+    summary = client.get("/api/v1/market/summary").json["summary"]
+    assert summary["active_listings"] > 0
+    assert set(summary["by_property_type"]) <= {"residential", "multi_family", "commercial"}
+    assert client.get("/api/v1/market/trends?city=Austin").json["trends"]
+    index = client.get("/api/v1/market/price-index").json
+    assert index["series"][0]["index_value"] == 100.0
+    assert client.get("/api/v1/model-runs/latest").json["model_run"]["status"] == "succeeded"
