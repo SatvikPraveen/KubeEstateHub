@@ -1,0 +1,105 @@
+# promtool unit tests: `promtool test rules observability/prometheus/rules.test.yaml`
+rule_files: [rules.yaml]
+evaluation_interval: 30s
+
+tests:
+  - name: an incident with 10% errors after a healthy hour pages on availability budget burn
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="listings-api",route="/api/v1/listings",method="GET",status="200"}'
+        values: '0+900x180'
+      - series: 'http_requests_total{job="listings-api",route="/api/v1/listings",method="GET",status="500"}'
+        values: '0x60 100+100x120'  # incident starts at t=60m
+      - series: 'http_requests_total{job="listings-api",route="/livez",method="GET",status="500"}'
+        values: '0+100000x180'    # probe traffic must not count towards the SLI
+    promql_expr_test:
+      - expr: round(kubeestatehub:api_error_ratio:rate5m, 0.001)
+        eval_time: 90m
+        exp_samples: [{labels: '{}', value: 0.1}]
+    alert_rule_test:
+      - eval_time: 70m              # short window burns, 1h window not yet: no page
+        alertname: KubeEstateHubAvailabilityBudgetBurnFast
+        exp_alerts: []
+      - eval_time: 125m
+        alertname: KubeEstateHubAvailabilityBudgetBurnFast
+        exp_alerts:
+          - exp_labels: {severity: page, slo: availability}
+            exp_annotations:
+              summary: Listings API is burning its availability error budget fast
+              description: 5xx ratio 10% would exhaust the 30-day budget in under 5 days.
+              runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#availability-budget-burn
+
+  - name: error rate within budget does not alert
+    interval: 1m
+    input_series:
+      - series: 'http_requests_total{job="listings-api",route="/api/v1/listings",method="GET",status="200"}'
+        values: '0+9990x180'
+      - series: 'http_requests_total{job="listings-api",route="/api/v1/listings",method="GET",status="503"}'
+        values: '0+10x180'        # 0.1% < 0.5% budget
+    alert_rule_test:
+      - eval_time: 170m
+        alertname: KubeEstateHubAvailabilityBudgetBurnFast
+        exp_alerts: []
+      - eval_time: 170m
+        alertname: KubeEstateHubAvailabilityBudgetBurnSlow
+        exp_alerts: []
+
+  - name: slow requests page on latency budget burn
+    interval: 1m
+    input_series:
+      - series: 'http_request_duration_seconds_bucket{job="listings-api",route="/api/v1/listings",method="GET",le="0.5"}'
+        values: '0+700x90'
+      - series: 'http_request_duration_seconds_bucket{job="listings-api",route="/api/v1/listings",method="GET",le="+Inf"}'
+        values: '0+1000x90'
+      - series: 'http_request_duration_seconds_count{job="listings-api",route="/api/v1/listings",method="GET"}'
+        values: '0+1000x90'
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: KubeEstateHubLatencyBudgetBurnFast
+        exp_alerts:
+          - exp_labels: {severity: page, slo: latency}
+            exp_annotations:
+              summary: Listings API latency SLO (p99 <= 500 ms) budget burning fast
+              description: 30% of requests are slower than 500 ms.
+              runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#latency-budget-burn
+
+  - name: conformal under-coverage and accuracy degradation
+    interval: 1m
+    input_series:
+      - series: 'kubeestatehub_avm_coverage{model="hedonic_conformal"}'
+        values: '0.90x20 0.80x60'
+      - series: 'kubeestatehub_avm_median_ape{model="hedonic_conformal"}'
+        values: '0.08x80'
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: ValuationIntervalUndercoverage
+        exp_alerts: []
+      - eval_time: 60m
+        alertname: ValuationIntervalUndercoverage
+        exp_alerts:
+          - exp_labels: {severity: ticket, model: hedonic_conformal}
+            exp_annotations:
+              summary: Valuation prediction intervals under-cover (80% vs 90% nominal)
+              description: Conformal calibration no longer holds; check for market regime change or data quality issues.
+              runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#valuation-model-degraded
+      - eval_time: 60m
+        alertname: ValuationAccuracyDegraded
+        exp_alerts: []
+
+  - name: stale analytics pipeline
+    interval: 5m
+    input_series:
+      - series: 'kubeestatehub_model_run_last_success_timestamp_seconds{pipeline="market-analytics"}'
+        values: '0x600'           # exporter keeps reporting a last success at t=0
+    alert_rule_test:
+      - eval_time: 30h
+        alertname: AnalyticsPipelineStale
+        exp_alerts: []
+      - eval_time: 40h
+        alertname: AnalyticsPipelineStale
+        exp_alerts:
+          - exp_labels: {severity: ticket, pipeline: market-analytics}
+            exp_annotations:
+              summary: Analytics pipeline market-analytics has not succeeded for over 36h
+              description: Market trends, the price index and valuations shown to users are stale.
+              runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#analytics-pipeline-stale
