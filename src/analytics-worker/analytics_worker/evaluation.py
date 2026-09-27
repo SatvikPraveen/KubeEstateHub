@@ -11,6 +11,7 @@ Metrics follow common AVM practice (IAAO *Standard on Automated Valuation Models
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import TypedDict
 
 import numpy as np
 import pandas as pd
@@ -51,13 +52,20 @@ def avm_metrics(
     return metrics
 
 
+class CrossValidationResult(TypedDict):
+    k: int
+    seed: int
+    pooled: dict[str, float]
+    folds: list[dict[str, float]]
+
+
 def cross_validate(
     sales: pd.DataFrame,
     fit_predict: FitPredict,
     *,
     k: int = 5,
     seed: int = 0,
-) -> dict[str, object]:
+) -> CrossValidationResult:
     """K-fold CV with pooled out-of-fold predictions and per-fold dispersion."""
     if len(sales) < k:
         raise ValueError("fewer rows than folds")

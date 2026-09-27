@@ -71,15 +71,18 @@ def main() -> None:
     sync_dir(db, CHART_FILES / "db")
 
     rules = (ROOT / "observability/prometheus/rules.yaml").read_text()
-    rule_body = rules[rules.index("groups:"):]
+    rule_body = rules[rules.index("groups:") :]
     write(
         ROOT / "manifests/components/monitoring/prometheusrule.yaml",
-        HEADER + "apiVersion: monitoring.coreos.com/v1\nkind: PrometheusRule\nmetadata:\n  name: kubeestatehub\n"
+        HEADER
+        + "apiVersion: monitoring.coreos.com/v1\nkind: PrometheusRule\nmetadata:\n  name: kubeestatehub\n"
         "  labels:\n    app.kubernetes.io/part-of: kubeestatehub\nspec:\n" + block(rule_body, 2),
     )
     write(CHART_FILES / "rules.yaml", rule_body)
 
-    rendered = {name: json.dumps(fn(), indent=2) + "\n" for name, fn in dashboards.DASHBOARDS.items()}
+    rendered = {
+        name: json.dumps(fn(), indent=2) + "\n" for name, fn in dashboards.DASHBOARDS.items()
+    }
     for name, content in rendered.items():
         write(ROOT / "observability/grafana" / name, content)
     write(
@@ -89,26 +92,39 @@ def main() -> None:
     sync_dir(rendered, CHART_FILES / "dashboards")
     chart = ROOT / "helm-charts" / "kubeestatehub"
     components = ROOT / "manifests" / "components"
-    write(chart / "crds" / "realestatesyncs.yaml", HEADER + (components / "operator" / "crd.yaml").read_text())
+    write(
+        chart / "crds" / "realestatesyncs.yaml",
+        HEADER + (components / "operator" / "crd.yaml").read_text(),
+    )
     policy = (components / "admission-policy" / "policy.yaml").read_text()
-    policy = policy.replace("validationActions: [Deny]",
-                            "validationActions: {{ toJson .Values.admissionPolicy.validationActions }}")
-    policy = policy.replace("matchLabels: {kubernetes.io/metadata.name: kubeestatehub}",
-                            "matchLabels: {kubernetes.io/metadata.name: {{ .Release.Namespace }}}")
-    write(chart / "templates" / "admission-policy.yaml",
-          HEADER + "{{- if .Values.admissionPolicy.enabled }}\n" + policy.rstrip() + "\n{{- end }}\n")
+    policy = policy.replace(
+        "validationActions: [Deny]",
+        "validationActions: {{ toJson .Values.admissionPolicy.validationActions }}",
+    )
+    policy = policy.replace(
+        "matchLabels: {kubernetes.io/metadata.name: kubeestatehub}",
+        "matchLabels: {kubernetes.io/metadata.name: {{ .Release.Namespace }}}",
+    )
+    write(
+        chart / "templates" / "admission-policy.yaml",
+        HEADER + "{{- if .Values.admissionPolicy.enabled }}\n" + policy.rstrip() + "\n{{- end }}\n",
+    )
     backup = (components / "backup" / "backup.yaml").read_text()
     for old, new in (
         ("storage: 20Gi}}", "storage: {{ .Values.backup.storage }}}}"),
         ('schedule: "0 1 * * *"', "schedule: {{ .Values.backup.schedule | quote }}"),
-        ('{name: BACKUP_RETENTION_DAYS, value: "14"}',
-         "{name: BACKUP_RETENTION_DAYS, value: {{ .Values.backup.retentionDays | quote }}}"),
+        (
+            '{name: BACKUP_RETENTION_DAYS, value: "14"}',
+            "{name: BACKUP_RETENTION_DAYS, value: {{ .Values.backup.retentionDays | quote }}}",
+        ),
     ):
         if old not in backup:
             raise SystemExit(f"backup component changed; update hack/generate.py ({old!r})")
         backup = backup.replace(old, new)
-    write(chart / "templates" / "backup.yaml",
-          HEADER + "{{- if .Values.backup.enabled }}\n" + backup.rstrip() + "\n{{- end }}\n")
+    write(
+        chart / "templates" / "backup.yaml",
+        HEADER + "{{- if .Values.backup.enabled }}\n" + backup.rstrip() + "\n{{- end }}\n",
+    )
     shutil.rmtree(ROOT / "hack" / "__pycache__", ignore_errors=True)
 
 

@@ -115,9 +115,9 @@ class MarketCollector(Collector):
         for row in snap.trends:
             key = [row["city"], row["state"], row["property_type"]]
             for column, family in families.items():
-                value = _num(row.get(column))
-                if value is not None:
-                    family.add_metric(key, value)
+                reading = _num(row.get(column))
+                if reading is not None:
+                    family.add_metric(key, reading)
             direction.add_metric([*key, row["trend_direction"]], 1.0)
         yield from families.values()
         yield direction

@@ -37,27 +37,26 @@ class ResponseCache:
     def enabled(self) -> bool:
         return self._client is not None
 
-    def _generation(self) -> int:
-        raw = self._client.get(GENERATION_KEY)
-        return int(raw) if raw else 0
-
     def key(self, namespace: str, params: dict[str, Any]) -> str | None:
-        if not self._client:
+        client = self._client
+        if client is None:
             return None
         try:
-            digest = hashlib.sha256(
-                json.dumps(params, sort_keys=True, default=str).encode()
-            ).hexdigest()[:24]
-            return f"listings:v{self._generation()}:{namespace}:{digest}"
+            raw = client.get(GENERATION_KEY)
+            generation = int(raw) if raw else 0
+            payload = json.dumps(params, sort_keys=True, default=str).encode()
+            digest = hashlib.sha256(payload).hexdigest()[:24]
+            return f"listings:v{generation}:{namespace}:{digest}"
         except Exception as exc:
             log.warning("cache unavailable: %s", exc)
             return None
 
     def get(self, key: str | None) -> Any | None:
-        if not key:
+        client = self._client
+        if not key or client is None:
             return None
         try:
-            raw = self._client.get(key)
+            raw = client.get(key)
         except Exception as exc:
             log.warning("cache read failed: %s", exc)
             CACHE_EVENTS.labels("error").inc()
@@ -66,10 +65,11 @@ class ResponseCache:
         return json.loads(raw) if raw is not None else None
 
     def set(self, key: str | None, value: Any) -> None:
-        if not key:
+        client = self._client
+        if not key or client is None:
             return
         try:
-            self._client.setex(key, self._ttl, json.dumps(value, default=str))
+            client.setex(key, self._ttl, json.dumps(value, default=str))
         except Exception as exc:
             log.warning("cache write failed: %s", exc)
 

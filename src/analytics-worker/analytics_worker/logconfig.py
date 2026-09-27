@@ -29,6 +29,5 @@ def configure(level: str | None = None) -> None:
     handler = logging.StreamHandler(sys.stdout)
     if os.getenv("LOG_FORMAT", "json").lower() == "json":
         handler.setFormatter(JsonFormatter())
-    logging.basicConfig(
-        level=(level or os.getenv("LOG_LEVEL", "INFO")).upper(), handlers=[handler], force=True
-    )
+    resolved = level or os.getenv("LOG_LEVEL") or "INFO"
+    logging.basicConfig(level=resolved.upper(), handlers=[handler], force=True)

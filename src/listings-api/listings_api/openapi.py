@@ -5,12 +5,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from pydantic import BaseModel
+
 from .schemas import ListingCreate, ListingQuery, ListingUpdate, MarketQuery
 
 PROBLEM = {"$ref": "#/components/responses/Problem"}
 
 
-def _query_params(model: type) -> list[dict[str, Any]]:
+def _query_params(model: type[BaseModel]) -> list[dict[str, Any]]:
     schema = model.model_json_schema()
     return [
         {
@@ -23,7 +25,7 @@ def _query_params(model: type) -> list[dict[str, Any]]:
     ]
 
 
-def _defs(*models: type) -> dict[str, Any]:
+def _defs(*models: type[BaseModel]) -> dict[str, Any]:
     out: dict[str, Any] = {}
     for m in models:
         schema = m.model_json_schema(ref_template="#/components/schemas/{model}")
@@ -44,7 +46,7 @@ def build_spec(version: str) -> dict[str, Any]:
         "content": {"application/json": {"schema": {"$ref": f"#/components/schemas/{name}"}}},
     }
     ok = lambda desc: {"description": desc, "content": {"application/json": {}}}  # noqa: E731
-    write_security = [{"bearerAuth": []}]
+    write_security: list[dict[str, list[str]]] = [{"bearerAuth": []}]
     return {
         "openapi": "3.1.0",
         "info": {

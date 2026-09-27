@@ -47,7 +47,7 @@ class ComparableSalesModel:
         )
         z = (feats - self._mean) / self._std
         self._groups = {
-            key: (z[rows], base_log_price[rows])
+            (str(key[0]), str(key[1])): (z[rows], base_log_price[rows])  # type: ignore[index]
             for key, rows in sales.groupby(["city", "property_type"], observed=True).indices.items()
         }
         return self

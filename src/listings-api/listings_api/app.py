@@ -103,7 +103,7 @@ def create_app(
         MAX_CONTENT_LENGTH=256 * 1024,
     )
     if settings.trusted_proxies:
-        app.wsgi_app = ProxyFix(
+        app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
             app.wsgi_app, x_for=settings.trusted_proxies, x_proto=settings.trusted_proxies
         )
     if settings.cors_origins:

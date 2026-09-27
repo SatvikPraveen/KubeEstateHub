@@ -144,7 +144,10 @@ class InMemoryRepository:
         self.trends.extend({**r, "model_run_id": run_id} for r in rows)
 
     def write_price_index(self, run_id: str, index: pd.DataFrame) -> None:
-        self.price_index.extend({**r, "model_run_id": run_id} for r in index.to_dict("records"))
+        records: list[dict[str, Any]] = [
+            {str(k): v for k, v in r.items()} for r in index.to_dict("records")
+        ]
+        self.price_index.extend({**r, "model_run_id": run_id} for r in records)
 
     def write_valuations(self, run_id: str, rows: Sequence[Mapping[str, Any]]) -> None:
         self.valuations.extend({**r, "model_run_id": run_id} for r in rows)
@@ -235,12 +238,18 @@ class PostgresRepository:
         params = [
             (
                 run_id,
-                pd.Timestamp(r.period).date(),
-                _clean(r.index_value),
-                _clean(r.std_error),
-                int(r.n_sales),
+                pd.Timestamp(str(period)).date(),
+                _clean(value),
+                _clean(se),
+                int(n),
             )
-            for r in index.itertuples()
+            for period, value, se, n in zip(
+                index["period"],
+                index["index_value"],
+                index["std_error"],
+                index["n_sales"],
+                strict=True,
+            )
         ]
         with self._connect() as conn, conn.cursor() as cur:
             cur.executemany(

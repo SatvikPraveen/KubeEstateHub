@@ -15,7 +15,6 @@ Definitions (see docs/research/methodology.md):
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import date, timedelta
 
@@ -200,10 +199,8 @@ def compute_market_trends(
     per city when ``include_all_types`` is true."""
     rng = np.random.default_rng(seed)
     out: list[MarketSnapshot] = []
-    segments: Iterable[tuple[Sequence[str], pd.DataFrame]] = df.groupby(
-        ["city", "state", "property_type"], sort=True, observed=True
-    )
-    for (city, state, ptype), seg in segments:
+    for key, seg in df.groupby(["city", "state", "property_type"], sort=True, observed=True):
+        city, state, ptype = (str(k) for k in key)
         if len(seg) >= min_listings:
             out.append(
                 market_snapshot(
@@ -217,7 +214,8 @@ def compute_market_trends(
                 )
             )
     if include_all_types:
-        for (city, state), seg in df.groupby(["city", "state"], sort=True, observed=True):
+        for key, seg in df.groupby(["city", "state"], sort=True, observed=True):
+            city, state = (str(k) for k in key)
             if len(seg) >= min_listings:
                 out.append(
                     market_snapshot(

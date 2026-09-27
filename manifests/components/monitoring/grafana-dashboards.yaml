@@ -619,7 +619,7 @@ data:
         {
           "id": 17,
           "type": "table",
-          "title": "Trend slope %/month (Theil\u2013Sen) and Mann\u2013Kendall p",
+          "title": "Trend slope %/month (Theil-Sen) and Mann-Kendall p",
           "description": "",
           "datasource": {
             "type": "prometheus",

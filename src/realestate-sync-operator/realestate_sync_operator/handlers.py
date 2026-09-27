@@ -51,7 +51,7 @@ def probe_now(**_: Any) -> str:
     return datetime.now(UTC).isoformat()
 
 
-def apply_cronjob(body: dict[str, Any]) -> None:
+def apply_cronjob(body: kopf.Body) -> None:
     batch = client.BatchV1Api()
     name = body["metadata"]["name"]
     namespace = body["metadata"]["namespace"]
@@ -75,7 +75,7 @@ def apply_cronjob(body: dict[str, Any]) -> None:
 @kopf.on.update(GROUP, VERSION, PLURAL, field="spec")
 @kopf.on.resume(GROUP, VERSION, PLURAL)
 def reconcile(body: kopf.Body, patch: kopf.Patch, **_: Any) -> None:
-    apply_cronjob(dict(body))
+    apply_cronjob(body)
     patch.status.update(
         derive_status(
             None,
@@ -95,7 +95,7 @@ def refresh_status(body: kopf.Body, patch: kopf.Patch, **_: Any) -> None:
         cj_status = client.ApiClient().sanitize_for_serialization(cj.status) or {}
     except ApiException as exc:
         if exc.status == 404:  # drifted: somebody deleted the CronJob; recreate it
-            apply_cronjob(dict(body))
+            apply_cronjob(body)
             cj_status = {}
         else:
             raise
