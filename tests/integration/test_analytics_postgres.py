@@ -131,3 +131,26 @@ def test_listings_api_against_postgres(clean_db):
     index = client.get("/api/v1/market/price-index").json
     assert index["series"][0]["index_value"] == 100.0
     assert client.get("/api/v1/model-runs/latest").json["model_run"]["status"] == "succeeded"
+
+
+def test_metrics_service_against_postgres(clean_db):
+    from prometheus_client import CollectorRegistry, generate_latest
+
+    from metrics_service.collector import MarketCollector
+    from metrics_service.source import PostgresSource
+
+    repo = PostgresRepository(clean_db)
+    df, _ = generate_market(900, seed=10, start=date(2024, 9, 1), months=15)
+    repo.upsert_listings(df.to_dict("records"))
+    run_pipeline(repo, PipelineConfig(as_of=date(2025, 11, 30), seed=1, cv_folds=3))
+
+    registry = CollectorRegistry()
+    registry.register(MarketCollector(PostgresSource(clean_db)))
+    text = generate_latest(registry).decode()
+    assert "kubeestatehub_exporter_up 1.0" in text
+    assert 'kubeestatehub_avm_coverage{model="hedonic_conformal"}' in text
+    assert (
+        'kubeestatehub_model_run_last_success_timestamp_seconds{pipeline="market-analytics"}'
+        in text
+    )
+    assert "kubeestatehub_price_index " in text
