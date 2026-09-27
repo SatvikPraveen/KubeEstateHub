@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: listings-api-config
+data:
+  REDIS_URL: redis://redis:6379/0
+  DEFAULT_PAGE_SIZE: "20"
+  MAX_PAGE_SIZE: "100"
+  CACHE_TTL_SECONDS: "300"
+  RATE_LIMIT_DEFAULT: "600 per minute"
+  RATE_LIMIT_WRITE: "30 per minute"
+  TRUSTED_PROXIES: "1"
+  DB_POOL_MAX: "10"
+  DB_STATEMENT_TIMEOUT_MS: "5000"
+  GUNICORN_WORKERS: "2"
+  GUNICORN_THREADS: "4"
+  LOG_LEVEL: INFO
+  ENVIRONMENT: base

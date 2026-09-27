@@ -1,62 +1,59 @@
-# Location: `/kustomize/overlays/development/kustomization.yaml`
-
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+# Local clusters (kind/minikube): single replicas, generated throwaway credentials, the
+# operator and the admission policy enabled. Monitoring is optional here because it needs
+# prometheus-operator CRDs; add ../../../manifests/components/monitoring when installed.
+namespace: kubeestatehub
 
-metadata:
-  name: kubeestatehub-development
+resources:
+  - ../../../manifests/base
+components:
+  - ../../../manifests/components/operator
+  - ../../../manifests/components/admission-policy
 
-bases:
-  - ../../base
-
-namePrefix: dev-
-nameSuffix: -dev
-
-namespace: kubeestatehub-dev
+labels:
+  - pairs: {app.kubernetes.io/environment: development}
+    includeSelectors: false
 
 images:
-  - name: ghcr.io/kubeestatehub/listings-api
-    newTag: develop
-  - name: ghcr.io/kubeestatehub/analytics-worker
-    newTag: develop
-  - name: ghcr.io/kubeestatehub/frontend-dashboard
-    newTag: develop
-  - name: ghcr.io/kubeestatehub/metrics-service
-    newTag: develop
-
-commonLabels:
-  environment: development
-  app.kubernetes.io/instance: development
-
-replicas:
-  - name: listings-api
-    count: 1
-  - name: analytics-worker
-    count: 1
-  - name: frontend-dashboard
-    count: 1
-
-patchesStrategicMerge:
-  - patches/namespace-dev.yaml
-  - patches/resources-small.yaml
-  - patches/ingress-dev.yaml
-  - patches/storage-dev.yaml
-
-configMapGenerator:
-  - name: dev-config
-    literals:
-      - DEBUG=true
-      - LOG_LEVEL=debug
-      - ENVIRONMENT=development
-      - ENABLE_PROFILING=true
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/listings-api, newTag: main}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/frontend-dashboard, newTag: main}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/metrics-service, newTag: main}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/analytics-worker, newTag: main}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/realestate-sync-operator, newTag: main}
 
 secretGenerator:
-  - name: dev-secrets
+  # Development-only credentials. Never reuse outside a local cluster.
+  - name: db-secret
     literals:
-      - ADMIN_PASSWORD=dev123
-      - JWT_SECRET=dev-jwt-secret
+      - username=kubeestatehub
+      - password=kubeestatehub-dev
+      - database-url=postgresql://kubeestatehub:kubeestatehub-dev@postgres:5432/kubeestatehub
+  - name: api-secret
+    literals:
+      - write-token=dev-write-token
 
-generatorOptions:
-  disableNameSuffixHash: false
-  labels:
-    environment: development
+configMapGenerator:
+  - name: listings-api-config
+    behavior: merge
+    literals: [ENVIRONMENT=development, LOG_LEVEL=DEBUG, GUNICORN_WORKERS=1]
+
+patches:
+  - target: {kind: HorizontalPodAutoscaler}
+    patch: |-
+      - {op: replace, path: /spec/minReplicas, value: 1}
+  - target: {kind: Deployment, name: "listings-api|frontend"}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 1}
+  - target: {kind: PodDisruptionBudget}
+    patch: |-
+      - {op: replace, path: /spec/minAvailable, value: 0}
+  - target: {kind: StatefulSet, name: postgres}
+    patch: |-
+      - {op: replace, path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage, value: 2Gi}
+  - target: {kind: Deployment, name: realestate-sync-operator}
+    patch: |-
+      - {op: replace, path: /spec/template/spec/containers/0/env/0/value, value: "ghcr.io/satvikpraveen/kubeestatehub/analytics-worker:main"}
+  - target: {kind: ValidatingAdmissionPolicyBinding}
+    patch: |-
+      - {op: replace, path: /spec/validationActions, value: [Warn, Audit]}

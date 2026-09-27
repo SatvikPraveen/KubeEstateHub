@@ -1,0 +1,44 @@
+# In-process admission control with CEL (ValidatingAdmissionPolicy, GA in Kubernetes 1.30).
+# Pod Security Admission ("restricted", set on the namespace) already blocks privileged
+# pods; this policy adds platform conventions PSA cannot express.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: kubeestatehub-workload-standards
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: [v1]
+        operations: [CREATE, UPDATE]
+        resources: [pods]
+  variables:
+    - name: containers
+      expression: >-
+        object.spec.containers + (has(object.spec.initContainers) ? object.spec.initContainers : [])
+  validations:
+    - expression: >-
+        variables.containers.all(c, c.image.contains('@sha256:') || (c.image.split('/')[c.image.split('/').size() - 1].contains(':') && !c.image.endsWith(':latest')))
+      message: images must be pinned to a tag other than 'latest' or to a digest
+      reason: Invalid
+    - expression: >-
+        variables.containers.all(c, has(c.securityContext) && has(c.securityContext.readOnlyRootFilesystem) && c.securityContext.readOnlyRootFilesystem == true)
+      message: containers must set securityContext.readOnlyRootFilesystem=true
+    - expression: >-
+        variables.containers.all(c, has(c.resources) && has(c.resources.limits) && 'memory' in c.resources.limits)
+      message: containers must declare a memory limit
+    - expression: >-
+        object.spec.containers.all(c, has(c.resources) && has(c.resources.requests) && 'cpu' in c.resources.requests)
+      message: containers must declare a CPU request (required for HPA and scheduling)
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: kubeestatehub-workload-standards
+spec:
+  policyName: kubeestatehub-workload-standards
+  validationActions: [Deny]
+  matchResources:
+    namespaceSelector:
+      matchLabels: {kubernetes.io/metadata.name: kubeestatehub}

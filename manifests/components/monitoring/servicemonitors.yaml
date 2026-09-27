@@ -1,0 +1,37 @@
+# prometheus-operator resources (kube-prometheus-stack; see platform/). The Prometheus
+# instance must select ServiceMonitors outside its own release (see platform/values).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: listings-api
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: listings-api}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: metrics-service
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: metrics-service}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 60s          # business metrics change slowly; exporter caches for 30s
+      scrapeTimeout: 20s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: postgres}
+  endpoints:
+    - port: metrics
+      interval: 30s

@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: realestate-sync-operator
+---
+# Identity for the sync Jobs the operator creates; they need no Kubernetes API access.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: realestate-sync-job
+automountServiceAccountToken: false
+---
+# kopf discovers resources via the CRD API and resolves namespaces (cluster-scoped, read-only).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kubeestatehub-realestate-sync-operator
+rules:
+  - apiGroups: [apiextensions.k8s.io]
+    resources: [customresourcedefinitions]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kubeestatehub-realestate-sync-operator
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: ClusterRole, name: kubeestatehub-realestate-sync-operator}
+subjects: [{kind: ServiceAccount, name: realestate-sync-operator, namespace: kubeestatehub}]
+---
+# Everything else is namespaced and least-privilege.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: realestate-sync-operator
+rules:
+  - apiGroups: [realestate.kubeestatehub.io]
+    resources: [realestatesyncs]
+    verbs: [get, list, watch, patch]
+  - apiGroups: [realestate.kubeestatehub.io]
+    resources: [realestatesyncs/status]
+    verbs: [get, patch, update]
+  - apiGroups: [batch]
+    resources: [cronjobs]
+    verbs: [get, create, update, patch]
+  - apiGroups: [batch]
+    resources: [cronjobs/status]
+    verbs: [get]
+  - apiGroups: ["", events.k8s.io]
+    resources: [events]
+    verbs: [create, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: realestate-sync-operator
+roleRef: {apiGroup: rbac.authorization.k8s.io, kind: Role, name: realestate-sync-operator}
+subjects: [{kind: ServiceAccount, name: realestate-sync-operator}]

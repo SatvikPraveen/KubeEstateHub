@@ -1,0 +1,29 @@
+prometheus:
+  prometheusSpec:
+    # discover ServiceMonitors/PrometheusRules from any namespace, not only this release
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    retention: 30d                     # matches the 30-day SLO window
+    resources:
+      requests: {cpu: 200m, memory: 1Gi}
+grafana:
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard
+      searchNamespace: ALL
+alertmanager:
+  config:
+    route:
+      group_by: [alertname, slo]
+      receiver: default
+      routes:
+        - matchers: ['severity="page"']
+          receiver: pager
+        - matchers: ['severity="ticket"']
+          receiver: tickets
+    receivers:
+      - name: default
+      - name: pager        # wire to PagerDuty/Opsgenie
+      - name: tickets      # wire to the issue tracker / chat

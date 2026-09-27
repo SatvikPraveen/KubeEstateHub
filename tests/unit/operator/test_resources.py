@@ -137,13 +137,13 @@ def test_derive_status(status, suspended, phase, ready):
 
 
 def test_example_resources_reconcile_and_match_crd_enums():
-    root = Path(__file__).resolve().parents[3] / "manifests" / "operators"
-    crd = yaml.safe_load((root / "realestate-sync-crd.yaml").read_text())
+    root = Path(__file__).resolve().parents[3] / "manifests"
+    crd = yaml.safe_load((root / "components" / "operator" / "crd.yaml").read_text())
     schema = crd["spec"]["versions"][0]["schema"]["openAPIV3Schema"]["properties"]["spec"][
         "properties"
     ]
     allowed = set(schema["source"]["properties"]["type"]["enum"])
-    for cr in yaml.safe_load_all((root / "realestate-sync-cr.yaml").read_text()):
+    for cr in yaml.safe_load_all((root / "examples" / "realestatesync.yaml").read_text()):
         assert cr["spec"]["source"]["type"] in allowed
         cj = build_cronjob(cr["metadata"]["name"], cr["metadata"]["namespace"], cr["spec"], CFG)
         assert cj["spec"]["suspend"] == cr["spec"].get("suspend", False)

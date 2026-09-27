@@ -1,0 +1,48 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: analytics-pipeline
+  labels: {app.kubernetes.io/name: analytics-pipeline, app.kubernetes.io/component: analytics}
+spec:
+  schedule: "30 2 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels: {app.kubernetes.io/name: analytics-pipeline, app.kubernetes.io/component: analytics}
+        spec:
+          restartPolicy: Never
+          serviceAccountName: analytics
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: pipeline
+              image: ghcr.io/satvikpraveen/kubeestatehub/analytics-worker:2.0.0
+              args: [pipeline]
+              env:
+                - name: DATABASE_URL
+                  valueFrom: {secretKeyRef: {name: db-secret, key: database-url}}
+                - {name: PIPELINE_SEED, value: "0"}
+                - {name: LOG_FORMAT, value: json}
+              resources:
+                requests: {cpu: 250m, memory: 512Mi}
+                limits: {memory: 2Gi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              volumeMounts: [{name: tmp, mountPath: /tmp}]
+          volumes:
+            - {name: tmp, emptyDir: {sizeLimit: 256Mi}}

@@ -1,0 +1,18 @@
+# kube-linter configuration for rendered overlays (hack/validate.sh).
+# Default checks plus a few stricter ones; every exclusion is justified.
+checks:
+  include:
+    - pdb-unhealthy-pod-eviction-policy
+    - no-rolling-update-strategy
+    - unsafe-sysctls
+    - sensitive-host-mounts
+    - docker-sock
+    - access-to-create-pods
+    - cluster-admin-role-binding
+    - wildcard-in-rules
+  exclude:
+    # Spreading uses topologySpreadConstraints, which kube-linter does not recognise as
+    # an alternative to podAntiAffinity.
+    - no-anti-affinity
+    # StatefulSets and the single-writer operator intentionally use non-rolling updates.
+    - no-rolling-update-strategy

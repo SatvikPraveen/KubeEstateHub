@@ -1,0 +1,18 @@
+# Single entry point. /api goes straight to the API; everything else is the dashboard,
+# whose nginx also proxies /openapi.json and /readyz to the API. Requires an ingress-nginx
+# controller (see platform/).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kubeestatehub
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 256k
+    nginx.ingress.kubernetes.io/enable-opentelemetry: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: kubeestatehub.localtest.me
+      http:
+        paths:
+          - {path: /api, pathType: Prefix, backend: {service: {name: listings-api, port: {name: http}}}}
+          - {path: /, pathType: Prefix, backend: {service: {name: frontend, port: {name: http}}}}

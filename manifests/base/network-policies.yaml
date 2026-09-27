@@ -1,0 +1,103 @@
+# Zero-trust networking: deny everything, then allow each flow explicitly.
+# Assumes ingress-nginx runs in namespace "ingress-nginx" and Prometheus in "monitoring".
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: default-deny-all}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-dns-egress}
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}
+          podSelector: {matchLabels: {k8s-app: kube-dns}}
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-prometheus-scrape}
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/name, operator: In, values: [listings-api, metrics-service, postgres]}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: monitoring}}
+      ports: [{port: 8080}, {port: 9187}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: frontend}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: frontend}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}
+      ports: [{port: 8080}]
+  egress:
+    - to: [{podSelector: {matchLabels: {app.kubernetes.io/name: listings-api}}}]
+      ports: [{port: 8080}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: listings-api}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: listings-api}}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    - from:
+        - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}
+        - podSelector: {matchLabels: {app.kubernetes.io/name: frontend}}
+      ports: [{port: 8080}]
+  egress:
+    - to: [{podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}}]
+      ports: [{port: 5432}]
+    - to: [{podSelector: {matchLabels: {app.kubernetes.io/name: redis}}}]
+      ports: [{port: 6379}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: postgres}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [listings-api, metrics-service, analytics-pipeline, db-migrate, db-backup, realestate-sync]
+      ports: [{port: 5432}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: redis}
+spec:
+  podSelector: {matchLabels: {app.kubernetes.io/name: redis}}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{podSelector: {matchLabels: {app.kubernetes.io/name: listings-api}}}]
+      ports: [{port: 6379}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: database-clients-egress}
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [metrics-service, analytics-pipeline, db-migrate, db-backup, realestate-sync]
+  policyTypes: [Egress]
+  egress:
+    - to: [{podSelector: {matchLabels: {app.kubernetes.io/name: postgres}}}]
+      ports: [{port: 5432}]

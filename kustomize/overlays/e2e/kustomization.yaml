@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# Used by hack/kind-e2e.sh: the development overlay with images built from the working
+# tree and side-loaded into kind (`kind load docker-image`), and the policy enforcing.
+resources:
+  - ../development
+images:
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/listings-api, newName: kubeestatehub/listings-api, newTag: e2e}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/frontend-dashboard, newName: kubeestatehub/frontend-dashboard, newTag: e2e}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/metrics-service, newName: kubeestatehub/metrics-service, newTag: e2e}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/analytics-worker, newName: kubeestatehub/analytics-worker, newTag: e2e}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/realestate-sync-operator, newName: kubeestatehub/realestate-sync-operator, newTag: e2e}
+patches:
+  - target: {kind: Deployment, name: realestate-sync-operator}
+    patch: |-
+      - {op: replace, path: /spec/template/spec/containers/0/env/0/value, value: "kubeestatehub/analytics-worker:e2e"}
+  - target: {kind: ValidatingAdmissionPolicyBinding}
+    patch: |-
+      - {op: replace, path: /spec/validationActions, value: [Deny]}

@@ -1,0 +1,150 @@
+groups:
+  - name: kubeestatehub-sli.recording
+    interval: 30s
+    rules:
+      - record: kubeestatehub:api_requests:rate5m
+        expr: sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[5m]))
+      - record: kubeestatehub:api_error_ratio:rate5m
+        expr: |
+          sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health",status=~"5.."}[5m]))
+          / sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[5m]))
+      - record: kubeestatehub:api_error_ratio:rate30m
+        expr: |
+          sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health",status=~"5.."}[30m]))
+          / sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[30m]))
+      - record: kubeestatehub:api_error_ratio:rate1h
+        expr: |
+          sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health",status=~"5.."}[1h]))
+          / sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[1h]))
+      - record: kubeestatehub:api_error_ratio:rate2h
+        expr: |
+          sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health",status=~"5.."}[2h]))
+          / sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[2h]))
+      - record: kubeestatehub:api_error_ratio:rate6h
+        expr: |
+          sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health",status=~"5.."}[6h]))
+          / sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[6h]))
+      - record: kubeestatehub:api_error_ratio:rate1d
+        expr: |
+          sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health",status=~"5.."}[1d]))
+          / sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[1d]))
+      - record: kubeestatehub:api_error_ratio:rate3d
+        expr: |
+          sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health",status=~"5.."}[3d]))
+          / sum(rate(http_requests_total{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[3d]))
+      - record: kubeestatehub:api_slow_ratio:rate5m
+        expr: |
+          1 - sum(rate(http_request_duration_seconds_bucket{job="listings-api",route!~"/livez|/readyz|/metrics|/health",le="0.5"}[5m]))
+              / sum(rate(http_request_duration_seconds_count{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[5m]))
+      - record: kubeestatehub:api_slow_ratio:rate1h
+        expr: |
+          1 - sum(rate(http_request_duration_seconds_bucket{job="listings-api",route!~"/livez|/readyz|/metrics|/health",le="0.5"}[1h]))
+              / sum(rate(http_request_duration_seconds_count{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[1h]))
+      - record: kubeestatehub:api_slow_ratio:rate6h
+        expr: |
+          1 - sum(rate(http_request_duration_seconds_bucket{job="listings-api",route!~"/livez|/readyz|/metrics|/health",le="0.5"}[6h]))
+              / sum(rate(http_request_duration_seconds_count{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[6h]))
+      - record: kubeestatehub:api_slow_ratio:rate30m
+        expr: |
+          1 - sum(rate(http_request_duration_seconds_bucket{job="listings-api",route!~"/livez|/readyz|/metrics|/health",le="0.5"}[30m]))
+              / sum(rate(http_request_duration_seconds_count{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[30m]))
+      - record: kubeestatehub:api_latency_seconds:p95_5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (
+            rate(http_request_duration_seconds_bucket{job="listings-api",route!~"/livez|/readyz|/metrics|/health"}[5m])))
+
+  - name: kubeestatehub-slo.alerts
+    rules:
+      - alert: KubeEstateHubAvailabilityBudgetBurnFast
+        expr: |
+          (kubeestatehub:api_error_ratio:rate1h > (14.4 * 0.005) and kubeestatehub:api_error_ratio:rate5m > (14.4 * 0.005))
+          or
+          (kubeestatehub:api_error_ratio:rate6h > (6 * 0.005) and kubeestatehub:api_error_ratio:rate30m > (6 * 0.005))
+        for: 2m
+        labels: {severity: page, slo: availability}
+        annotations:
+          summary: Listings API is burning its availability error budget fast
+          description: 5xx ratio {{ $value | humanizePercentage }} would exhaust the 30-day budget in under 5 days.
+          runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#availability-budget-burn
+      - alert: KubeEstateHubAvailabilityBudgetBurnSlow
+        expr: |
+          (kubeestatehub:api_error_ratio:rate1d > (3 * 0.005) and kubeestatehub:api_error_ratio:rate2h > (3 * 0.005))
+          or
+          (kubeestatehub:api_error_ratio:rate3d > 0.005 and kubeestatehub:api_error_ratio:rate6h > 0.005)
+        for: 15m
+        labels: {severity: ticket, slo: availability}
+        annotations:
+          summary: Listings API availability error budget is eroding
+          description: 5xx ratio {{ $value | humanizePercentage }} is above the sustainable rate.
+          runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#availability-budget-burn
+      - alert: KubeEstateHubLatencyBudgetBurnFast
+        expr: |
+          (kubeestatehub:api_slow_ratio:rate1h > (14.4 * 0.01) and kubeestatehub:api_slow_ratio:rate5m > (14.4 * 0.01))
+          or
+          (kubeestatehub:api_slow_ratio:rate6h > (6 * 0.01) and kubeestatehub:api_slow_ratio:rate30m > (6 * 0.01))
+        for: 2m
+        labels: {severity: page, slo: latency}
+        annotations:
+          summary: Listings API latency SLO (p99 <= 500 ms) budget burning fast
+          description: '{{ $value | humanizePercentage }} of requests are slower than 500 ms.'
+          runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#latency-budget-burn
+
+  - name: kubeestatehub-model.alerts
+    rules:
+      - alert: AnalyticsPipelineStale
+        expr: time() - max by (pipeline) (kubeestatehub_model_run_last_success_timestamp_seconds) > 36 * 3600
+        for: 10m
+        labels: {severity: ticket}
+        annotations:
+          summary: 'Analytics pipeline {{ $labels.pipeline }} has not succeeded for over 36h'
+          description: Market trends, the price index and valuations shown to users are stale.
+          runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#analytics-pipeline-stale
+      - alert: ValuationIntervalUndercoverage
+        # Nominal coverage is 0.90. With ~3000 cross-validated sales the sampling SD of the
+        # empirical coverage is ~0.0055, so 0.85 is > 9 SD below nominal: real miscalibration
+        # (e.g. distribution shift), not noise.
+        expr: kubeestatehub_avm_coverage{model="hedonic_conformal"} < 0.85
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: Valuation prediction intervals under-cover ({{ $value | humanizePercentage }} vs 90% nominal)
+          description: Conformal calibration no longer holds; check for market regime change or data quality issues.
+          runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#valuation-model-degraded
+      - alert: ValuationAccuracyDegraded
+        expr: kubeestatehub_avm_median_ape{model="hedonic_conformal"} > 0.15
+        for: 30m
+        labels: {severity: ticket}
+        annotations:
+          summary: Cross-validated median APE is {{ $value | humanizePercentage }} (> 15%)
+          runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#valuation-model-degraded
+      - alert: MetricsExporterCannotReachDatabase
+        expr: kubeestatehub_exporter_up == 0
+        for: 10m
+        labels: {severity: ticket}
+        annotations:
+          summary: metrics-service cannot refresh from PostgreSQL; business metrics are stale
+          runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#exporter-down
+
+  - name: kubeestatehub-infra.alerts
+    rules:
+      - alert: ListingsApiNoTargets
+        expr: sum(up{job="listings-api"}) == 0 or absent(up{job="listings-api"})
+        for: 5m
+        labels: {severity: page}
+        annotations:
+          summary: No listings-api instance is being scraped successfully
+          runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#api-down
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 2m
+        labels: {severity: page}
+        annotations:
+          summary: PostgreSQL is unreachable from its exporter
+          runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#postgres-down
+      - alert: PostgresConnectionSaturation
+        expr: sum(pg_stat_activity_count) / max(pg_settings_max_connections) > 0.8
+        for: 10m
+        labels: {severity: ticket}
+        annotations:
+          summary: PostgreSQL connections at {{ $value | humanizePercentage }} of max_connections
+          runbook_url: https://github.com/SatvikPraveen/KubeEstateHub/blob/main/docs/operations/runbooks.md#postgres-connections

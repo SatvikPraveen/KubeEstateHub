@@ -1,63 +1,36 @@
-# Location: `/kustomize/overlays/staging/kustomization.yaml`
-
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+namespace: kubeestatehub
 
-metadata:
-  name: kubeestatehub-staging
+resources:
+  - ../../../manifests/base
+  - external-secrets.yaml
+components:
+  - ../../../manifests/components/monitoring
+  - ../../../manifests/components/operator
+  - ../../../manifests/components/admission-policy
+  - ../../../manifests/components/backup
 
-bases:
-  - ../../base
-
-namePrefix: staging-
-nameSuffix: -staging
-
-namespace: kubeestatehub-staging
+labels:
+  - pairs: {app.kubernetes.io/environment: staging}
+    includeSelectors: false
 
 images:
-  - name: ghcr.io/kubeestatehub/listings-api
-    newTag: staging
-  - name: ghcr.io/kubeestatehub/analytics-worker
-    newTag: staging
-  - name: ghcr.io/kubeestatehub/frontend-dashboard
-    newTag: staging
-  - name: ghcr.io/kubeestatehub/metrics-service
-    newTag: staging
-
-commonLabels:
-  environment: staging
-  app.kubernetes.io/instance: staging
-
-replicas:
-  - name: listings-api
-    count: 2
-  - name: analytics-worker
-    count: 1
-  - name: frontend-dashboard
-    count: 2
-
-patchesStrategicMerge:
-  - patches/namespace-staging.yaml
-  - patches/resources-medium.yaml
-  - patches/ingress-staging.yaml
-  - patches/monitoring-staging.yaml
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/listings-api, newTag: "2.0.0"}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/frontend-dashboard, newTag: "2.0.0"}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/metrics-service, newTag: "2.0.0"}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/analytics-worker, newTag: "2.0.0"}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/realestate-sync-operator, newTag: "2.0.0"}
 
 configMapGenerator:
-  - name: staging-config
-    literals:
-      - DEBUG=false
-      - LOG_LEVEL=info
-      - ENVIRONMENT=staging
-      - ENABLE_PROFILING=false
-      - METRICS_ENABLED=true
+  - name: listings-api-config
+    behavior: merge
+    literals: [ENVIRONMENT=staging]
 
-secretGenerator:
-  - name: staging-secrets
-    literals:
-      - ADMIN_PASSWORD=staging-secure-password
-      - JWT_SECRET=staging-jwt-secret-key
-
-generatorOptions:
-  disableNameSuffixHash: false
-  labels:
-    environment: staging
+patches:
+  - target: {kind: Ingress, name: kubeestatehub}
+    patch: |-
+      - {op: replace, path: /spec/rules/0/host, value: staging.kubeestatehub.example.com}
+  - target: {kind: ValidatingAdmissionPolicyBinding}
+    patch: |-
+      - {op: replace, path: /spec/validationActions, value: [Warn, Audit]}

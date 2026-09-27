@@ -1,67 +1,51 @@
-# Location: `/kustomize/overlays/production/kustomization.yaml`
-
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
-metadata:
-  name: kubeestatehub-production
-
-bases:
-  - ../../base
-
 namespace: kubeestatehub
 
+resources:
+  - ../../../manifests/base
+  - external-secrets.yaml
+components:
+  - ../../../manifests/components/monitoring
+  - ../../../manifests/components/operator
+  - ../../../manifests/components/admission-policy
+  - ../../../manifests/components/backup
+
+labels:
+  - pairs: {app.kubernetes.io/environment: production}
+    includeSelectors: false
+
 images:
-  - name: ghcr.io/kubeestatehub/listings-api
-    newTag: v1.0.0
-  - name: ghcr.io/kubeestatehub/analytics-worker
-    newTag: v1.0.0
-  - name: ghcr.io/kubeestatehub/frontend-dashboard
-    newTag: v1.0.0
-  - name: ghcr.io/kubeestatehub/metrics-service
-    newTag: v1.0.0
-
-commonLabels:
-  environment: production
-  app.kubernetes.io/instance: production
-
-replicas:
-  - name: listings-api
-    count: 3
-  - name: analytics-worker
-    count: 2
-  - name: frontend-dashboard
-    count: 3
-
-patchesStrategicMerge:
-  - patches/resources-large.yaml
-  - patches/ingress-production.yaml
-  - patches/monitoring-production.yaml
-  - patches/security-production.yaml
-  - patches/backup-production.yaml
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/listings-api, newTag: "2.0.0"}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/frontend-dashboard, newTag: "2.0.0"}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/metrics-service, newTag: "2.0.0"}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/analytics-worker, newTag: "2.0.0"}
+  - {name: ghcr.io/satvikpraveen/kubeestatehub/realestate-sync-operator, newTag: "2.0.0"}
 
 configMapGenerator:
-  - name: production-config
-    literals:
-      - DEBUG=false
-      - LOG_LEVEL=warn
-      - ENVIRONMENT=production
-      - ENABLE_PROFILING=false
-      - METRICS_ENABLED=true
-      - BACKUP_ENABLED=true
+  - name: listings-api-config
+    behavior: merge
+    literals: [ENVIRONMENT=production, LOG_LEVEL=INFO, GUNICORN_WORKERS=3]
 
-secretGenerator:
-  - name: production-secrets
-    files:
-      - secrets/jwt-secret.key
-      - secrets/db-password.key
-      - secrets/api-keys.env
-
-generatorOptions:
-  disableNameSuffixHash: true
-  labels:
-    environment: production
-
-transformers:
-  - transformers/resource-limits.yaml
-  - transformers/security-contexts.yaml
+patches:
+  - target: {kind: HorizontalPodAutoscaler, name: listings-api}
+    patch: |-
+      - {op: replace, path: /spec/minReplicas, value: 3}
+      - {op: replace, path: /spec/maxReplicas, value: 20}
+  - target: {kind: Deployment, name: listings-api}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 3}
+      - {op: replace, path: /spec/template/spec/containers/0/resources, value: {requests: {cpu: 250m, memory: 256Mi}, limits: {memory: 512Mi}}}
+  - target: {kind: PodDisruptionBudget, name: listings-api}
+    patch: |-
+      - {op: replace, path: /spec/minAvailable, value: 2}
+  - target: {kind: StatefulSet, name: postgres}
+    patch: |-
+      - {op: replace, path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage, value: 100Gi}
+      - {op: replace, path: /spec/template/spec/containers/0/resources, value: {requests: {cpu: "1", memory: 2Gi}, limits: {memory: 4Gi}}}
+  - target: {kind: Ingress, name: kubeestatehub}
+    patch: |-
+      - {op: replace, path: /spec/rules/0/host, value: kubeestatehub.example.com}
+      - {op: add, path: /spec/tls, value: [{hosts: [kubeestatehub.example.com], secretName: kubeestatehub-tls}]}
+      - {op: add, path: /metadata/annotations/cert-manager.io~1cluster-issuer, value: letsencrypt-prod}
+      - {op: add, path: /metadata/annotations/nginx.ingress.kubernetes.io~1force-ssl-redirect, value: "true"}

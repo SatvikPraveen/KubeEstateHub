@@ -22,7 +22,7 @@ The CronJob uses `concurrencyPolicy: Forbid`, and its pods run as non-root with 
 read-only root filesystem, all capabilities dropped and no service-account token.
 
 ```bash
-kubectl apply -f manifests/operators/realestate-sync-cr.yaml
+kubectl apply -f manifests/examples/realestatesync.yaml
 kubectl get res            # short name
 ```
 

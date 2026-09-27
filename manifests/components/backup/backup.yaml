@@ -1,0 +1,70 @@
+# Nightly logical backup (pg_dump custom format) to a PVC, keeping BACKUP_RETENTION_DAYS.
+# For point-in-time recovery use WAL archiving (e.g. CloudNativePG + object storage).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-backups
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 20Gi}}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  labels: {app.kubernetes.io/name: db-backup, app.kubernetes.io/component: database}
+spec:
+  schedule: "0 1 * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      template:
+        metadata:
+          labels: {app.kubernetes.io/name: db-backup, app.kubernetes.io/component: database}
+        spec:
+          restartPolicy: Never
+          serviceAccountName: postgres
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 70
+            runAsGroup: 70
+            fsGroup: 70
+            seccompProfile: {type: RuntimeDefault}
+          containers:
+            - name: backup
+              image: postgres:16.4-alpine
+              command:
+                - sh
+                - -ec
+                - |
+                  f="/backups/kubeestatehub-$(date -u +%Y%m%dT%H%M%SZ).dump"
+                  pg_dump --format=custom --no-owner --file="$f.partial"
+                  pg_restore --list "$f.partial" > /dev/null   # verify the archive is readable
+                  mv "$f.partial" "$f"
+                  find /backups -name 'kubeestatehub-*.dump' -mtime +"$BACKUP_RETENTION_DAYS" -delete
+                  ls -lh /backups
+              env:
+                - {name: PGHOST, value: postgres}
+                - {name: PGDATABASE, value: kubeestatehub}
+                - {name: BACKUP_RETENTION_DAYS, value: "14"}
+                - name: PGUSER
+                  valueFrom: {secretKeyRef: {name: db-secret, key: username}}
+                - name: PGPASSWORD
+                  valueFrom: {secretKeyRef: {name: db-secret, key: password}}
+              resources:
+                requests: {cpu: 50m, memory: 64Mi}
+                limits: {memory: 512Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: {drop: [ALL]}
+              volumeMounts: [{name: backups, mountPath: /backups}]
+          volumes:
+            - name: backups
+              persistentVolumeClaim: {claimName: db-backups}
