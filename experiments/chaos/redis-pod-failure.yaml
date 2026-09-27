@@ -1,0 +1,13 @@
+# Hypothesis: the API keeps serving (no 5xx, p99 < 500 ms) while Redis is unavailable.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: PodChaos
+metadata:
+  name: redis-pod-failure
+  namespace: kubeestatehub
+spec:
+  action: pod-failure
+  mode: all
+  duration: 5m
+  selector:
+    namespaces: [kubeestatehub]
+    labelSelectors: {app.kubernetes.io/name: redis}

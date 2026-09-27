@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use this software or its validation results, please cite it as below."
+title: "KubeEstateHub: a cloud-native platform for statistically validated real-estate market analytics"
+abstract: >-
+  KubeEstateHub is a Kubernetes-native real-estate analytics platform. It pairs a
+  production-grade service stack (listings API, dashboard, operator, SLO-based
+  observability, policy-as-code and signed supply chain) with a reproducible analytics
+  pipeline. The pipeline estimates a hedonic price index with robust errors, classifies
+  market trends with nonparametric tests, values properties with split-conformal
+  prediction intervals, and records full provenance for every result. All estimators are
+  validated by Monte Carlo simulation against known ground truth.
+type: software
+authors:
+  - family-names: Praveen
+    given-names: Satvik
+    email: satvikpraveen707@gmail.com
+repository-code: "https://github.com/SatvikPraveen/KubeEstateHub"
+license: MIT
+version: 2.0.0
+date-released: "2026-09-27"
+keywords:
+  - kubernetes
+  - hedonic pricing
+  - conformal prediction
+  - automated valuation models
+  - service level objectives
+  - reproducibility

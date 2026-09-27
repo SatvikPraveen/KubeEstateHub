@@ -1,0 +1,17 @@
+# Hypothesis: losing API pods one at a time does not breach the availability SLO.
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Schedule
+metadata:
+  name: api-pod-kill
+  namespace: kubeestatehub
+spec:
+  schedule: "@every 2m"
+  historyLimit: 5
+  concurrencyPolicy: Forbid
+  type: PodChaos
+  podChaos:
+    action: pod-kill
+    mode: one
+    selector:
+      namespaces: [kubeestatehub]
+      labelSelectors: {app.kubernetes.io/name: listings-api}

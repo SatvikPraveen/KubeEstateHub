@@ -1,0 +1,25 @@
+# Hypothesis: +300 ms per database round trip (list queries make two) pushes requests past
+# 500 ms, breaches the latency SLO and pages within ~5 min
+# (validates the alerting path end to end, not the service's resilience).
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: postgres-latency
+  namespace: kubeestatehub
+spec:
+  action: delay
+  mode: all
+  duration: 5m
+  selector:
+    namespaces: [kubeestatehub]
+    labelSelectors: {app.kubernetes.io/name: listings-api}
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces: [kubeestatehub]
+      labelSelectors: {app.kubernetes.io/name: postgres}
+  delay:
+    latency: 300ms
+    jitter: 50ms
+    correlation: "25"

@@ -1,9 +1,84 @@
-# CHANGELOG - KubeEstateHub
+# Changelog
 
-All notable changes to this project will be documented in this file.
+All notable changes to this project are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
+[Semantic Versioning](https://semver.org/).
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [2.0.0] - 2026-09-27
+
+A ground-up rework. Version 1.0.0 described itself as production-ready, but it could not
+be deployed:
+
+* No kustomize overlay built.
+* The Helm chart failed lint and depended on unvendored subcharts.
+* The API crashed at import (Flask-Limiter signature).
+* The frontend image could not build.
+* The schema job was invalid YAML and invalid SQL.
+* The manifests used removed or invented APIs.
+* The CI workflows skipped their checks.
+
+### Added
+* Analytics methods:
+  * a hedonic price model with HC1 errors, Duan smearing and a Kennedy-corrected
+    time-dummy price index
+  * Theil–Sen and Mann–Kendall trend classification
+  * split-conformal valuation intervals and a comparable-sales AVM
+  * k-fold AVM evaluation with IAAO metrics
+* A synthetic market generator with ground truth, a Monte Carlo validation study
+  (`python -m analytics_worker benchmark`), trend size and power studies and
+  `docs/research/`.
+* Provenance: the `model_runs` table referenced by every derived row, and the
+  `/api/v1/model-runs/latest` endpoint.
+* The RealEstateSync operator (kopf): CronJob reconciliation, status subresource, drift
+  repair and garbage collection.
+* Versioned, checksummed SQL migrations with a POSIX runner, and readiness gated on the
+  schema version.
+* Listings API v2:
+  * pydantic contracts that also generate the OpenAPI 3.1 spec
+  * RFC 9457 errors, PATCH and soft DELETE
+  * bearer-token writes and a separate write rate limit
+  * market summary, trends and price index endpoints
+  * generation-based cache invalidation and multiprocess Prometheus metrics
+* A scrape-time metrics exporter with model-quality gauges (conformal coverage, median
+  APE, pipeline freshness).
+* SLOs (99.5% availability, 99% ≤ 500 ms), multi-window burn-rate alerts, model-quality
+  alerts, promtool tests, a Grafana dashboard as code and runbooks.
+* A Kubernetes base with PSA `restricted` and default-deny NetworkPolicies, plus these
+  components: monitoring, operator, admission policy (CEL) and backup. Overlays for
+  development, staging, production (External Secrets, TLS) and e2e.
+* A self-contained Helm chart with a values schema, migration hook, `helm test` and CI
+  parity with kustomize.
+* Validation tooling: kubeconform, kube-linter and conftest (Rego v1, with unit tests and
+  cross-resource invariants).
+* Testing: a docker compose stack with an end-to-end test, a kind end-to-end test, a k6
+  SLO load test and Chaos Mesh experiments.
+* CI/CD:
+  * gating lint and typing, unit tests on 3.12 and 3.13, PostgreSQL integration and an
+    estimator benchmark
+  * multi-arch images with Trivy gate, SBOM, SLSA provenance and cosign signatures
+  * CodeQL, gitleaks, Trivy IaC scanning, dependency review, Dependabot and an OCI chart
+    release
+* ADRs, a threat model, `CITATION.cff` and `SECURITY.md`.
+
+### Changed
+* Analytics runs as a batch CronJob instead of an idle Celery worker.
+* The frontend is served by nginx-unprivileged and shows only live data. It renders
+  without innerHTML, so it is XSS-safe, and uses CSP and SRI.
+* The liveness probe no longer depends on the database.
+* The minimum Kubernetes version is now 1.30 and the minimum Python version 3.12.
+
+### Removed
+* Hand-maintained copies of platform software: the ingress controller, Prometheus,
+  Grafana, Alertmanager, cluster-autoscaler, Falco and fluent-bit. Use the pinned
+  upstream charts in `platform/` instead.
+* PodSecurityPolicies, fake admission webhooks, AWS-only PersistentVolumes and deployment
+  scripts that referenced non-existent files.
+
+### Security
+* Removed plaintext `apiKey` and `connectionString` fields from the CRD. No credentials
+  are committed.
+* Two demo defaults found in the 1.0.0 history are listed in `.gitleaksignore`. Rotate
+  anything that ever reused them.
 
 ## [1.0.0] - 2025-11-26
 
@@ -188,8 +263,8 @@ This project is licensed under the MIT License. See the LICENSE file for details
 
 For issues, questions, or suggestions:
 
-1. Check the [FAQ](docs/faq.md)
-2. Review the [Debugging Guide](docs/debugging-guide.md)
+1. Check the FAQ (removed in 2.0.0)
+2. Review the Debugging Guide (removed in 2.0.0)
 3. Open a GitHub issue with detailed information
 4. Provide relevant logs and configuration details
 

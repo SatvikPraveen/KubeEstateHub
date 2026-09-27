@@ -1,503 +1,105 @@
-````markdown
 # KubeEstateHub
 
-A production-ready, cloud-native real estate management platform built on Kubernetes, demonstrating enterprise-grade architecture patterns, observability, security, and operational practices.
+[![ci](https://github.com/SatvikPraveen/KubeEstateHub/actions/workflows/ci.yaml/badge.svg)](https://github.com/SatvikPraveen/KubeEstateHub/actions/workflows/ci.yaml)
+[![kubernetes](https://github.com/SatvikPraveen/KubeEstateHub/actions/workflows/kubernetes.yaml/badge.svg)](https://github.com/SatvikPraveen/KubeEstateHub/actions/workflows/kubernetes.yaml)
+[![images](https://github.com/SatvikPraveen/KubeEstateHub/actions/workflows/images.yaml/badge.svg)](https://github.com/SatvikPraveen/KubeEstateHub/actions/workflows/images.yaml)
+[![security](https://github.com/SatvikPraveen/KubeEstateHub/actions/workflows/security.yaml/badge.svg)](https://github.com/SatvikPraveen/KubeEstateHub/actions/workflows/security.yaml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## 🎯 Status - v1.0.0 RELEASED ✅
+**A cloud-native platform for statistically validated real-estate market analytics on
+Kubernetes.** It combines production-grade platform engineering with reproducible
+research:
 
-**All issues have been fixed!** The project is fully functional with production-ready GitHub Actions workflows.
+* **Services:** a listings API, a dashboard, a batch analytics pipeline, a
+  model-quality exporter and a custom operator.
+* **Operations:** SLOs with burn-rate alerting, policy-as-code and zero-trust networking.
+* **Supply chain:** signed images and CI where every check gates.
+* **Analytics:** market trends come with significance tests, valuations come with
+  prediction intervals that have a finite-sample coverage guarantee, and every number
+  can be traced to the code version, seed and parameters that produced it.
 
-- ✅ Complete database schema with initialization
-- ✅ All services fully integrated
-- ✅ Kubernetes manifests corrected
-- ✅ Helm charts properly configured  
-- ✅ Deployment scripts working
-- ✅ GitHub Actions CI/CD workflows operational
-- ✅ Production-ready security
-- ✅ Comprehensive documentation
+## Highlights
 
-**Recent Updates:**
-- ✅ GitHub Actions workflows fixed (4 commits: 2a11acf, 853e216, 0b53af6, 3993b98)
-- ✅ Hardcoded secrets scanning with warnings
-- ✅ CodeQL upload with proper permissions handling
-- ✅ All container scanning, manifest validation, security analysis working
-- ✅ Docker image building and pushing functional
+| | |
+|---|---|
+| **Hedonic price index** | Log-linear hedonic model with HC1 errors, Duan smearing and a Kennedy-corrected time-dummy index |
+| **Trend detection** | Theil–Sen slope with Sen's CI plus the Mann–Kendall test. The v1 ±5% rule flagged 62–74% of *flat* markets as trending; the new classifier flags about 9% |
+| **Valuation uncertainty** | Split-conformal intervals: 0.902 empirical coverage against 0.90 nominal over 50 Monte Carlo markets |
+| **Accuracy** | Cross-validated median APE of 8.2%, at the theoretical noise floor of about 8.1% |
+| **Provenance** | A `model_runs` row per pipeline run, referenced by every trend, index point and valuation |
+| **Operator** | `RealEstateSync` custom resource reconciled into owned, hardened CronJobs, with status and drift repair (kopf) |
+| **SLOs** | 99.5% availability and 99% ≤ 500 ms, multi-window burn-rate alerts, conformal-coverage drift alerts, all tested with promtool |
+| **Security** | PSA `restricted`, default-deny NetworkPolicies, CEL ValidatingAdmissionPolicy, least-privilege RBAC, External Secrets, and cosign, SBOM and SLSA provenance on images |
+| **Verification** | 118 unit tests, PostgreSQL integration tests, 20 policy tests, promtool tests, kubeconform, kube-linter and conftest on 8 renders, a Helm/kustomize parity check, and compose and kind end-to-end tests |
 
-**See [CHANGELOG.md](CHANGELOG.md) for all 40+ fixes and improvements.**
-
-## ✨ GitHub Actions CI/CD Status
-
-All GitHub Actions workflows are **fully operational** ✅
-
-| Workflow | Status | Features |
-|----------|--------|----------|
-| **Security Scan** | ✅ Working | Container scanning, RBAC analysis, secrets detection, supply chain security |
-| **Manifest Validation** | ✅ Working | YAML validation, kubectl dry-run, Kustomize/Helm testing |
-| **K8s Deploy** | ✅ Working | Manifest validation, security scanning, Docker image building |
-
-**Recent Fixes:**
-- Fixed CodeQL upload permissions (works on push, skipped on PRs)
-- Hardcoded secrets detection with graceful warnings
-- Removed problematic external tool downloads (kube-score, kubeval, conftest)
-- All validation now uses built-in kubectl tools
-- Deployment jobs properly commented out (requires secret setup)
-
-**For details:** [GitHub Actions Quick Fix Guide](docs/github-actions/GITHUB_ACTIONS_QUICK_FIX.md)
-
-## 📚 Quick Links
-
-- **[Quick Start Guide](docs/getting-started/QUICKSTART.md)** - Deploy in 5 minutes
-- **[Issues & Fixes](docs/internal/ISSUES_AND_FIXES.md)** - All 45+ problems solved
-- **[Advanced Features](docs/guides/ADVANCED_FEATURES.md)** - Enterprise scaling guide
-- **[GitHub Actions Fixes](docs/github-actions/GITHUB_ACTIONS_QUICK_FIX.md)** - CI/CD workflow fixes
-- **[Documentation Index](docs/INDEX.md)** - Complete documentation navigation
-- **[FAQ](docs/faq.md)** - Common questions
-
-## Overview
-
-KubeEstateHub is a production-ready microservices platform for real estate management built on Kubernetes. It demonstrates modern cloud-native practices with:
-
-- **Microservices Architecture** - Listings API, Analytics Worker, Frontend Dashboard, Metrics Service
-- **Complete Kubernetes Setup** - Manifests, Helm, Kustomize deployments
-- **Enterprise Security** - Pod Security Standards, RBAC, Network Policies
-- **Production Operations** - Monitoring, autoscaling, health checks, backups
-- **Multi-Environment Support** - Development, Staging, Production
-
-## Quick Start
-
-```bash
-# Clone and deploy
-git clone https://github.com/SatvikPraveen/KubeEstateHub.git
-cd KubeEstateHub
-
-# One-command deployment
-./scripts/deploy-all.sh -e development
-
-# Or with Helm
-helm install kubeestatehub ./helm-charts/kubeestatehub \
-  --namespace kubeestatehub \
-  -f helm-charts/kubeestatehub/values-development.yaml \
-  --create-namespace
-
-# Or use Kustomize
-kubectl apply -k kustomize/overlays/development
-
-# Access services
-kubectl port-forward svc/frontend-dashboard-service 3000:80
-kubectl port-forward svc/listings-api-service 8080:8080
-```
-
-Then open:
-- Frontend: http://localhost:3000
-- API: http://localhost:8080/api/v1/listings
-- Health: http://localhost:8080/health
-
-**Full guide: [docs/getting-started/QUICKSTART.md](docs/getting-started/QUICKSTART.md)**
+Full numbers and how to reproduce them: [docs/research/results.md](docs/research/results.md).
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Kubernetes Cluster                   │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  ┌──────────────────┐  ┌──────────────────────────────┐ │
-│  │   Frontend       │  │      Ingress / LoadBalancer  │ │
-│  │   Dashboard      │  │                              │ │
-│  └────────┬─────────┘  └─────────────┬────────────────┘ │
-│           │                          │                  │
-│  ┌────────▼──────────────────────────▼──────────┐       │
-│  │         Listings API Service (3 replicas)    │       │
-│  │  • Property listings management              │       │
-│  │  • CRUD operations                           │       │
-│  │  • Caching & Rate limiting                   │       │
-│  └────────────────┬─────────────────────────────┘       │
-│                   │                                     │
-│  ┌────────────────▼───────────┐ ┌──────────────────┐    │
-│  │   PostgreSQL Database      │ │   Redis Cache    │    │
-│  │  • Schema & Indexes        │ │  • Session data  │    │
-│  │  • Market trends           │ │  • Cache layer   │    │
-│  │  • Property valuations     │ │  • Broker URL    │    │
-│  └────────────────────────────┘ └──────────────────┘    │
-│                                                         │
-│  ┌─────────────────────┐ ┌──────────────────────────┐   │
-│  │ Analytics Worker    │ │  Metrics Service         │   │
-│  │ • Market analysis   │ │  • Prometheus metrics    │   │
-│  │ • Trend calculation │ │  • Grafana dashboards    │   │
-│  │ • Valuations        │ │  • Health indicators     │   │
-│  └─────────────────────┘ └──────────────────────────┘   │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+  user([Browser]) --> ing[Ingress]
+  ing -->|/api| api[listings-api]
+  ing --> fe[dashboard]
+  api --> pg[(PostgreSQL)]
+  api --> redis[(Redis)]
+  cron[[analytics pipeline<br/>nightly CronJob]] --> pg
+  op[RealEstateSync operator] --> sync[[sync CronJobs]] --> pg
+  ms[metrics-service] --> pg
+  prom[Prometheus + Alertmanager] --> api & ms
 ```
 
-## Key Fixes Applied ✅
+Details: [docs/architecture.md](docs/architecture.md) and the [ADRs](docs/adr/README.md).
 
-### Database
-- Automatic schema initialization
-- Complete table structure with relationships
-- Sample data for testing
-- Proper indexes for performance
-- Materialized views for analytics
+## Quick start
 
-### Services
-- Fixed API endpoint consistency
-- Proper service discovery
-- Health checks configured
-- Metrics endpoints enabled
-- Connection retry logic
-
-### Kubernetes
-- Corrected service names and routing
-- Fixed storage class (standard instead of fast-ssd)
-- Added headless service for StatefulSet
-- Database initialization job
-- Proper resource limits
-
-### Deployment
-- Absolute path handling in scripts
-- Multi-deployment support (Manifests, Helm, Kustomize)
-- Environment-specific values files
-- Proper namespacing
-- Error handling and retries
-
-### Security
-- Pod security policies
-- Network policies
-- RBAC configurations
-- Non-root containers
-- Read-only filesystems
-- Secret management
-
-## Deployment Options
-
-### Option 1: Manifests (Easiest)
 ```bash
-./scripts/deploy-all.sh -e development
+make up               # docker compose: migrate, seed a synthetic market, run the pipeline
+open http://localhost:3000
+make e2e              # 13 end-to-end checks on a fresh stack
+make kind-e2e         # the same platform on a real Kubernetes cluster (kind)
 ```
 
-### Option 2: Helm (Recommended)
-```bash
-helm install kubeestatehub ./helm-charts/kubeestatehub \
-  -f helm-charts/kubeestatehub/values-production.yaml \
-  --namespace kubeestatehub --create-namespace
-```
+Other paths, including Helm, kustomize and an existing cluster, are in
+[docs/getting-started.md](docs/getting-started.md).
 
-### Option 3: Kustomize (Most Flexible)
-```bash
-kubectl apply -k kustomize/overlays/production
-```
-
-## Technology Stack
-
-| Component | Technology | Version |
-|-----------|-----------|---------|
-| Container Orchestration | Kubernetes | 1.25+ |
-| Package Manager | Helm | 3.0+ |
-| Configuration | Kustomize | Latest |
-| Database | PostgreSQL | 15.4 |
-| Cache | Redis | 7.0+ |
-| API Framework | Flask | 3.0 |
-| Frontend | HTML/CSS/JS | - |
-| Monitoring | Prometheus | Latest |
-| Dashboards | Grafana | Latest |
-
-## Project Structure
+## Repository layout
 
 ```
-KubeEstateHub/
-├── .github/workflows/                # GitHub Actions CI/CD
-│   ├── security-scan.yaml           # Container & code security scanning
-│   ├── manifest-validation.yaml     # Kubernetes manifest validation
-│   └── k8s-deploy.yaml              # Deploy & build pipeline
-│
-├── src/                              # Application code
-│   ├── listings-api/                # REST API service
-│   ├── analytics-worker/            # Background jobs
-│   ├── metrics-service/             # Metrics exporter
-│   └── frontend-dashboard/          # Web UI
-│
-├── manifests/                        # Kubernetes resources
-│   ├── base/                        # Core components
-│   ├── configs/                     # ConfigMaps & Secrets
-│   ├── jobs/                        # Database init job
-│   ├── monitoring/                  # Prometheus & Grafana
-│   ├── storage/                     # PersistentVolumes
-│   └── security/                    # Policies & RBAC
-│
-├── kustomize/                        # Environment overlays
-│   ├── base/
-│   └── overlays/
-│       ├── development/
-│       ├── staging/
-│       └── production/
-│
-├── helm-charts/                      # Helm packages
-│   └── kubeestatehub/
-│       ├── values.yaml
-│       ├── values-development.yaml
-│       ├── values-staging.yaml
-│       ├── values-production.yaml
-│       └── templates/
-│
-├── scripts/                          # Automation & utilities
-│   ├── deploy-all.sh
-│   ├── cluster-setup.sh
-│   ├── backup-db.sh
-│   └── ...
-│
-├── docs/                             # Complete documentation
-│   ├── INDEX.md                     # Documentation navigation
-│   ├── getting-started/             # Quick start guides
-│   ├── guides/                      # Advanced guides
-│   ├── github-actions/              # GitHub Actions docs
-│   ├── internal/                    # Development docs
-│   ├── architecture-overview.md
-│   ├── security-best-practices.md
-│   ├── debugging-guide.md
-│   ├── monitoring-guide.md
-│   ├── scaling-guide.md
-│   └── ...
-│
-├── tests/                            # Integration tests
-├── README.md                         # This file
-├── CHANGELOG.md                      # Version history
-└── PROJECT_STRUCTURE.md              # Detailed structure
+src/
+  listings-api/              Flask API (pydantic, OpenAPI 3.1, RFC 9457, RED metrics)
+  analytics-worker/          statistics, hedonic/conformal models, pipeline, feed sync, benchmark
+  metrics-service/           scrape-time business and model-quality exporter
+  frontend-dashboard/        static dashboard on nginx-unprivileged
+  realestate-sync-operator/  kopf operator
+db/                          versioned, checksummed SQL migrations and runner
+manifests/                   kustomize base and components (monitoring, operator, admission-policy, backup)
+kustomize/overlays/          development, staging, production, e2e
+helm-charts/kubeestatehub/   self-contained chart, in parity with the production overlay
+policy/                      conftest policies (Rego v1) and their tests
+observability/               Prometheus rules + promtool tests, Grafana dashboards
+platform/                    pinned cluster prerequisites (helmfile)
+experiments/chaos/           Chaos Mesh experiments with SLO-linked hypotheses
+tests/                       unit, integration, load (k6)
+hack/                        generate, validate, kind-e2e, tool installer, studies
+docs/                        architecture, research, operations, security, ADRs
 ```
-
-See [docs/INDEX.md](docs/INDEX.md) for complete documentation navigation.
-
-## Getting Started
-
-### Prerequisites
-
-- Kubernetes cluster (1.25+)
-- kubectl configured
-- Docker (for building images)
-- Helm 3.0+ (optional)
-
-### Step-by-Step
-
-1. **Clone repository**
-   ```bash
-   git clone https://github.com/SatvikPraveen/KubeEstateHub.git
-   cd KubeEstateHub
-   ```
-
-2. **Deploy to Kubernetes**
-   ```bash
-   chmod +x scripts/deploy-all.sh
-   ./scripts/deploy-all.sh -e development
-   ```
-
-3. **Access services**
-   ```bash
-   kubectl port-forward svc/frontend-dashboard-service 3000:80
-   kubectl port-forward svc/listings-api-service 8080:8080
-   ```
-
-4. **Open in browser**
-   - Frontend: http://localhost:3000
-   - API: http://localhost:8080/api/v1/listings
-
-See [QUICKSTART.md](QUICKSTART.md) for detailed instructions.
-
-## Common Operations
-
-### View Logs
-```bash
-kubectl logs -n kubeestatehub -f deployment/listings-api
-```
-
-### Check Status
-```bash
-kubectl get pods -n kubeestatehub
-kubectl describe pod <pod-name> -n kubeestatehub
-```
-
-### Database Access
-```bash
-kubectl exec -it postgresql-db-0 -n kubeestatehub -- psql -U kubeestatehub
-```
-
-### Scale Deployment
-```bash
-kubectl scale deployment listings-api -n kubeestatehub --replicas=5
-```
-
-### Health Check
-```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/metrics
-```
-
-More commands: [QUICKSTART.md](QUICKSTART.md#common-operations)
-
-## Monitoring
-
-### Health Checks
-```bash
-curl http://localhost:8080/health
-curl http://localhost:8080/ready
-curl http://localhost:8080/metrics
-```
-
-### Access Monitoring
-```bash
-# Prometheus
-kubectl port-forward svc/prometheus-service 9090:9090
-
-# Grafana  
-kubectl port-forward svc/grafana-service 3001:3000
-```
-
-## Security Features
-
-✅ Pod Security Standards (restricted)
-✅ RBAC with service accounts
-✅ Network policies
-✅ Non-root containers
-✅ Read-only filesystems
-✅ Secret encryption
-✅ Resource limits
-✅ Security contexts
-
-See [docs/security-best-practices.md](docs/security-best-practices.md)
-
-## What's Included
-
-- ✅ Complete database schema
-- ✅ Kubernetes manifests
-- ✅ Helm charts (3 environments)
-- ✅ Kustomize overlays
-- ✅ Deployment scripts
-- ✅ Docker files
-- ✅ Health checks
-- ✅ Monitoring setup
-- ✅ Security policies
-- ✅ Integration tests
-- ✅ Complete documentation
-
-## What's Fixed
-
-**45+ Issues Resolved:**
-- Database initialization ✅
-- Service discovery ✅
-- API endpoints ✅
-- Deployment paths ✅
-- Helm configuration ✅
-- Security context ✅
-- Resource limits ✅
-- Health checks ✅
-- And 37 more...
-
-See [ISSUES_AND_FIXES.md](ISSUES_AND_FIXES.md) for complete list.
-
-## Deployment Checklist
-
-- [ ] Clone repository
-- [ ] Configure namespace and context
-- [ ] Update secrets (passwords, API keys)
-- [ ] Configure ingress domain
-- [ ] Deploy database
-- [ ] Wait for database initialization
-- [ ] Deploy applications
-- [ ] Verify pod status
-- [ ] Check service endpoints
-- [ ] Test API endpoints
-- [ ] Access dashboard
 
 ## Documentation
 
-Complete documentation available:
+* [Statistical methodology](docs/research/methodology.md)
+* [Validation results](docs/research/results.md)
+* [SLOs](docs/research/slo.md)
+* [Runbooks](docs/operations/runbooks.md)
+* [Threat model](docs/security/threat-model.md)
+* [Contributing](CONTRIBUTING.md)
+* [Changelog](CHANGELOG.md)
 
-- **[Documentation Index](docs/INDEX.md)** - Complete navigation of all docs
-- **[Quick Start](docs/getting-started/QUICKSTART.md)** - Get started in minutes
-- **[Architecture](docs/architecture-overview.md)** - System design
-- **[Security](docs/security-best-practices.md)** - Security hardening
-- **[Operations](docs/debugging-guide.md)** - Troubleshooting
-- **[Scaling](docs/scaling-guide.md)** - Performance optimization
-- **[Monitoring](docs/monitoring-guide.md)** - Observability setup
-- **[Advanced](docs/guides/ADVANCED_FEATURES.md)** - Enterprise features
-- **[GitHub Actions](docs/github-actions/GITHUB_ACTIONS_QUICK_FIX.md)** - CI/CD workflow fixes
-- **[FAQ](docs/faq.md)** - Common questions
+## Citing
 
-## Getting Help
-
-1. **Quick Start Issues** → [docs/getting-started/QUICKSTART.md](docs/getting-started/QUICKSTART.md)
-2. **Common Questions** → [docs/faq.md](docs/faq.md)
-3. **Troubleshooting** → [docs/debugging-guide.md](docs/debugging-guide.md)
-4. **Architecture** → [docs/architecture-overview.md](docs/architecture-overview.md)
-5. **Advanced Topics** → [docs/guides/ADVANCED_FEATURES.md](docs/guides/ADVANCED_FEATURES.md)
-6. **GitHub Actions** → [docs/github-actions/GITHUB_ACTIONS_QUICK_FIX.md](docs/github-actions/GITHUB_ACTIONS_QUICK_FIX.md)
-7. **All Fixes** → [docs/internal/ISSUES_AND_FIXES.md](docs/internal/ISSUES_AND_FIXES.md)
-
-## Roadmap
-
-### v1.1.0 (Planned)
-- GitHub Actions CI/CD
-- Automated image builds
-- Chart dependencies
-
-### v1.2.0 (Planned)  
-- Service mesh (Istio)
-- Distributed tracing (Jaeger)
-- GraphQL API
-- WebSocket support
-
-### v1.3.0 (Planned)
-- ML property valuation
-- Blue-green deployments
-- Cost optimization
-
-### v2.0.0 (Planned)
-- Multi-cluster support
-- Federation
-- Enterprise SLA
-
-## Contributing
-
-Contributions are welcome! Please:
-1. Read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines
-2. Fork the repository
-3. Create feature branch
-4. Make changes
-5. Add tests
-6. Update documentation
-7. Submit pull request
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed instructions.
+If you use KubeEstateHub or its validation results, please cite it using
+[CITATION.cff](CITATION.cff).
 
 ## License
 
-MIT License - Open for use, modification, and distribution.
-
-See [LICENSE](LICENSE) file for details.
-
-## Support
-
-- 📧 **Issues**: Open GitHub issue
-- 📖 **Docs**: See [documentation](docs/)
-- ❓ **FAQ**: Check [FAQ](docs/faq.md)
-- 🐛 **Debug**: See [Debugging Guide](docs/debugging-guide.md)
-
-## Acknowledgments
-
-- Kubernetes community for best practices
-- Real estate industry standards
-- Open source projects
-
----
-
-## Next Steps
-
-1. **New to KubeEstateHub?** → Start with [docs/getting-started/QUICKSTART.md](docs/getting-started/QUICKSTART.md)
-2. **Want to understand issues?** → Read [docs/internal/ISSUES_AND_FIXES.md](docs/internal/ISSUES_AND_FIXES.md)
-3. **Enterprise features?** → Check [docs/guides/ADVANCED_FEATURES.md](docs/guides/ADVANCED_FEATURES.md)
-4. **Workflow problems?** → See [docs/github-actions/GITHUB_ACTIONS_QUICK_FIX.md](docs/github-actions/GITHUB_ACTIONS_QUICK_FIX.md)
-5. **Need help?** → Browse [docs/INDEX.md](docs/INDEX.md) or [docs/faq.md](docs/faq.md)
-
----
-
-**Status:** Production Ready ✅ | **Version:** 1.0.0 | **License:** MIT
-
-Built with ❤️ for Kubernetes - Ready for Development and Deployment 🚀
+[MIT](LICENSE)
