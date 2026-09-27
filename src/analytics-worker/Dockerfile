@@ -1,48 +1,27 @@
-# Location: `/src/analytics-worker/Dockerfile`
+# syntax=docker/dockerfile:1.7
+ARG PYTHON_VERSION=3.12
 
-FROM python:3.11-slim-bookworm
+FROM python:${PYTHON_VERSION}-slim-bookworm AS build
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /build
+COPY requirements.txt .
+RUN python -m venv /opt/venv && /opt/venv/bin/pip install -r requirements.txt
 
-# Set environment variables
+FROM python:${PYTHON_VERSION}-slim-bookworm
+ARG CODE_VERSION=dev
+LABEL org.opencontainers.image.title="kubeestatehub-analytics-worker" \
+      org.opencontainers.image.description="Market analytics pipeline, AVM evaluation and feed sync" \
+      org.opencontainers.image.source="https://github.com/SatvikPraveen/KubeEstateHub" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.revision="${CODE_VERSION}"
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    CELERY_BROKER_URL=redis://redis-service:6379/2 \
-    CELERY_RESULT_BACKEND=redis://redis-service:6379/1
-
-# Create non-root user
-RUN groupadd -r analytics && useradd -r -g analytics -u 1001 analytics
-
-# Set work directory
+    PATH="/opt/venv/bin:${PATH}" \
+    CODE_VERSION=${CODE_VERSION}
+RUN groupadd --system --gid 10001 app && useradd --system --uid 10001 --gid app --no-create-home app
+COPY --from=build /opt/venv /opt/venv
 WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    libc6-dev \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application code
-COPY . .
-
-# Create necessary directories and set permissions
-RUN mkdir -p /tmp /var/cache /var/log /app/data && \
-    chown -R analytics:analytics /app /tmp /var/cache /var/log
-
-# Switch to non-root user
-USER analytics
-
-# Expose metrics port
-EXPOSE 9090
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:9090')" || exit 1
-
-# Run the worker
-CMD ["python", "worker.py"]
+COPY analytics_worker ./analytics_worker
+USER 10001:10001
+ENTRYPOINT ["python", "-m", "analytics_worker"]
+CMD ["pipeline"]

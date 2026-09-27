@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS market_trends (
     sale_to_list_ratio        NUMERIC(6, 4),
     months_of_supply          NUMERIC(8, 2),
     absorption_rate           NUMERIC(6, 4),
-    trend_slope_pct_per_month NUMERIC(8, 4),             -- Theil-Sen slope of log median price
+    trend_slope_pct_per_month NUMERIC(8, 4),             -- Theil-Sen slope of log median price/sqft
     trend_slope_ci_low        NUMERIC(8, 4),
     trend_slope_ci_high       NUMERIC(8, 4),
     mann_kendall_tau          NUMERIC(6, 4),

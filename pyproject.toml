@@ -19,12 +19,17 @@ extend-exclude = ["tests/integration-tests"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "S", "RUF", "PT", "N"]
 ignore = [
-  "S104", # binding to 0.0.0.0 is intended inside containers
+  "S104",   # binding to 0.0.0.0 is intended inside containers
+  "PT018",  # composite assertions are fine in tests
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "S311", "N802"]
 "scripts/**" = ["S311"]
+
+[tool.ruff.lint.pycodestyle]
+# the formatter targets 100 columns; allow long SQL/f-string literals up to 120
+max-line-length = 120
 
 [tool.ruff.lint.isort]
 known-first-party = ["listings_api", "analytics_worker", "metrics_service", "realestate_sync_operator"]
@@ -38,7 +43,7 @@ pythonpath = [
   "src/realestate-sync-operator",
 ]
 testpaths = ["tests/unit"]
-addopts = "-ra --strict-markers --strict-config"
+addopts = "-ra --strict-markers --strict-config --import-mode=importlib"
 markers = [
   "integration: requires a live PostgreSQL (set DATABASE_URL)",
   "slow: statistically heavy tests (Monte Carlo)",
