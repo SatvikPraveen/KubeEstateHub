@@ -1,0 +1,98 @@
+# Local, fully reproducible stack:  make up   (or: docker compose up --build)
+# The demo market is synthetic (seed 42) so every run produces identical data and results.
+name: kubeestatehub
+
+x-db-env: &db-env
+  DATABASE_URL: postgresql://kubeestatehub:kubeestatehub@postgres:5432/kubeestatehub
+
+x-hardened: &hardened
+  read_only: true
+  tmpfs: [/tmp]
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: [ALL]
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_USER: kubeestatehub
+      POSTGRES_PASSWORD: kubeestatehub
+      POSTGRES_DB: kubeestatehub
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "kubeestatehub"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    image: postgres:16.4-alpine
+    entrypoint: ["sh", "/db/migrate.sh", "/db/migrations"]
+    environment:
+      PGHOST: postgres
+      PGUSER: kubeestatehub
+      PGPASSWORD: kubeestatehub
+      PGDATABASE: kubeestatehub
+    volumes: ["./db:/db:ro"]
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 30
+
+  seed:
+    build: {context: src/analytics-worker}
+    image: kubeestatehub/analytics-worker:local
+    command: ["seed", "--n", "4000", "--seed", "42"]
+    environment: *db-env
+    <<: *hardened
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+
+  pipeline:
+    image: kubeestatehub/analytics-worker:local
+    command: ["pipeline", "--seed", "0"]
+    environment: *db-env
+    <<: *hardened
+    depends_on:
+      seed: {condition: service_completed_successfully}
+
+  listings-api:
+    build: {context: src/listings-api}
+    image: kubeestatehub/listings-api:local
+    environment:
+      <<: *db-env
+      REDIS_URL: redis://redis:6379/0
+      API_WRITE_TOKEN: ${API_WRITE_TOKEN:-local-dev-token}
+      ENVIRONMENT: local
+    ports: ["127.0.0.1:${API_PORT:-8080}:8080"]
+    <<: *hardened
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+      redis: {condition: service_healthy}
+
+  metrics-service:
+    build: {context: src/metrics-service}
+    image: kubeestatehub/metrics-service:local
+    environment: *db-env
+    ports: ["127.0.0.1:${METRICS_PORT:-9100}:8080"]
+    <<: *hardened
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+
+  frontend:
+    build: {context: src/frontend-dashboard}
+    image: kubeestatehub/frontend-dashboard:local
+    ports: ["127.0.0.1:${FRONTEND_PORT:-3000}:8080"]
+    <<: *hardened
+    depends_on:
+      listings-api: {condition: service_healthy}
+
+volumes:
+  pgdata: {}
