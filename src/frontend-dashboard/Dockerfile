@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-FROM nginxinc/nginx-unprivileged:1.27.5-alpine
+FROM nginxinc/nginx-unprivileged:1.31.6-alpine
 ARG CODE_VERSION=dev
 LABEL org.opencontainers.image.title="kubeestatehub-frontend-dashboard" \
       org.opencontainers.image.description="Static market analytics dashboard" \
