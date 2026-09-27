@@ -1,5 +1,3 @@
-# Location: `/.gitignore`
-
 # Kubernetes secrets and sensitive files
 *.pem
 *.key
@@ -35,8 +33,6 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
 parts/
 sdist/
 var/
@@ -91,26 +87,17 @@ charts/*.tgz
 .terraform/
 *.tfvars
 
-# Docker
-.dockerignore
-
 # Local testing
 test-results/
 coverage/
 .nyc_output/
 
-# Database dumps
-*.sql
+# Database dumps (versioned migrations under db/ are tracked)
 *.dump
 db-backups/
 
 # Image files for testing
 uploads/
-images/
-*.jpg
-*.jpeg
-*.png
-*.gif
 test-images/
 
 # Generated documentation
@@ -141,3 +128,13 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 *.lnk
+
+# Tooling
+/bin/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+coverage.xml
+reports/
+artifacts/
