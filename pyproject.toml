@@ -14,7 +14,6 @@ authors = [{ name = "Satvik Praveen", email = "satvikpraveen707@gmail.com" }]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["tests/integration-tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "C4", "S", "RUF", "PT", "N"]

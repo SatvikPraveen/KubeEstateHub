@@ -68,8 +68,9 @@ services:
     image: kubeestatehub/listings-api:local
     environment:
       <<: *db-env
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: ${REDIS_URL-redis://redis:6379/0}
       API_WRITE_TOKEN: ${API_WRITE_TOKEN:-local-dev-token}
+      RATE_LIMIT_DEFAULT: ${RATE_LIMIT_DEFAULT:-600 per minute}
       ENVIRONMENT: local
     ports: ["127.0.0.1:${API_PORT:-8080}:8080"]
     <<: *hardened

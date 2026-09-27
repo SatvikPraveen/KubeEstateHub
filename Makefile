@@ -98,8 +98,8 @@ e2e: ## End-to-end smoke test against a fresh compose stack
 
 .PHONY: load-test
 load-test: ## k6 load test against BASE_URL (default: local compose stack)
-	docker run --rm -i --network host -e BASE_URL=$${BASE_URL:-http://127.0.0.1:3000} \
-	  -v $(CURDIR)/tests/load:/scripts grafana/k6:0.54.0 run /scripts/listings-api.js
+	docker run --rm -i --network host -e BASE_URL=$${BASE_URL:-http://127.0.0.1:3000} -e RATE=$${RATE:-200} \
+	  -v $(CURDIR)/tests/load:/scripts grafana/k6:1.3.0 run /scripts/listings-api.js
 
 .PHONY: clean
 clean: ## Remove caches and build artefacts
