@@ -68,11 +68,15 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           format: table
-      - name: trivy (SARIF report, all severities)
+      # Report only CVEs that have a fixed version: base-distro CVEs with no upstream fix are
+      # not actionable in this repo and would otherwise flood code scanning with hundreds of
+      # identical alerts per image. They reappear as alerts as soon as Debian ships a fix.
+      - name: trivy (SARIF report, all severities, fixable only)
         if: always()
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: scan/${{ matrix.service }}:ci
+          ignore-unfixed: true
           format: sarif
           output: trivy-${{ matrix.service }}.sarif
           skip-setup-trivy: true
