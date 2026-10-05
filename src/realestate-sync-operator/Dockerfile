@@ -30,5 +30,7 @@ WORKDIR /app
 COPY realestate_sync_operator ./realestate_sync_operator
 USER 10001:10001
 EXPOSE 8081
+HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --retries=3 \
+  CMD ["python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8081/healthz', timeout=2).status == 200 else 1)"]
 ENTRYPOINT ["kopf", "run", "-m", "realestate_sync_operator.handlers", "--liveness=http://0.0.0.0:8081/healthz"]
 CMD ["--all-namespaces"]

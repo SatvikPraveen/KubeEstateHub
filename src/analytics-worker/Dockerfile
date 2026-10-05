@@ -31,5 +31,7 @@ COPY --from=build /opt/venv /opt/venv
 WORKDIR /app
 COPY analytics_worker ./analytics_worker
 USER 10001:10001
+# Batch CLI (CronJob/Job): no long-running process or port to probe.
+HEALTHCHECK NONE
 ENTRYPOINT ["python", "-m", "analytics_worker"]
 CMD ["pipeline"]

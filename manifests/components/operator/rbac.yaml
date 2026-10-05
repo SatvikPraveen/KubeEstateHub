@@ -44,7 +44,7 @@ rules:
     verbs: [get, patch, update]
   - apiGroups: [batch]
     resources: [cronjobs]
-    verbs: [get, create, update, patch]
+    verbs: [get, create, update]   # create + replace (PUT); never patch/delete
   - apiGroups: [batch]
     resources: [cronjobs/status]
     verbs: [get]
