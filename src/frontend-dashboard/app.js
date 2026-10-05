@@ -217,13 +217,20 @@ async function loadAnalytics() {
 }
 
 // ---------------------------------------------------------------- shell
-const loaders = { dashboard: loadDashboard, listings: loadListings, analytics: loadAnalytics, settings: checkApi };
+// A Map, not an object literal: section comes from location.hash, and object lookup would
+// also resolve inherited properties such as "constructor".
+const loaders = new Map([
+  ["dashboard", loadDashboard],
+  ["listings", loadListings],
+  ["analytics", loadAnalytics],
+  ["settings", checkApi],
+]);
 
 function show(section) {
-  if (!loaders[section]) section = "dashboard";
+  if (!loaders.has(section)) section = "dashboard";
   document.querySelectorAll(".section").forEach((s) => s.classList.toggle("active", s.id === section));
   document.querySelectorAll(".nav-link").forEach((a) => a.classList.toggle("active", a.dataset.section === section));
-  loaders[section]().catch((err) => toast(err.message, "error"));
+  loaders.get(section)().catch((err) => toast(err.message, "error"));
 }
 
 async function checkApi() {
