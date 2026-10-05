@@ -1,0 +1,51 @@
+# Trivy ignore rules (YAML form, so each exclusion is scoped to paths and justified).
+# Used by .github/workflows/security.yaml (trivy-action `trivyignores`).
+misconfigurations:
+  # KSV-0039 / KSV-0040 are namespace-level controls, but Trivy evaluates them on every
+  # Kubernetes document and only passes a LimitRange (KSV-0039) or ResourceQuota (KSV-0040)
+  # itself, so they fail on every other object, including each other. The kubeestatehub
+  # namespace ships a LimitRange with min/max/default/defaultRequest and a ResourceQuota
+  # with requests+limits for CPU and memory (manifests/base/namespace.yaml, Helm
+  # namespace-policy.yaml), and policy/combined.rego enforces both on every rendered overlay.
+  - id: KSV-0039
+    statement: namespace-scoped control; enforced on rendered overlays by policy/combined.rego
+  - id: KSV-0040
+    statement: namespace-scoped control; enforced on rendered overlays by policy/combined.rego
+  # The kustomize sources deliberately omit metadata.namespace: every overlay sets
+  # `namespace: kubeestatehub`, and Helm installs into the release namespace (Trivy renders
+  # the chart with "default"). Nothing is ever applied to the default namespace.
+  - id: KSV-0110
+    paths:
+      - "manifests/**"
+      - "helm-charts/kubeestatehub/templates/**"
+    statement: namespace is set by the kustomize namespace transformer / Helm release namespace
+  # The listings-api ConfigMap only holds tuning knobs (page sizes, TTLs, log level); the
+  # check's passport/IBAN heuristic matches short upper-case/numeric values. Credentials
+  # live in Secrets (db-secret, api-secret) supplied by each overlay.
+  - id: KSV-01010
+    paths:
+      - "manifests/base/config.yaml"
+      - "helm-charts/kubeestatehub/templates/config.yaml"
+    statement: false positive; non-sensitive tuning values, secrets are in Secret objects
+  # PostgreSQL server keeps the image's postgres UID/GID 70: the alpine image has no
+  # nss_wrapper, so initdb fails for UIDs without a passwd entry, and existing data
+  # directories are owned by 70 (postgres refuses to start on a foreign-owned PGDATA).
+  # runAsNonRoot, no capabilities, read-only root FS and RuntimeDefault seccomp still apply.
+  - id: KSV-0020
+    paths:
+      - "manifests/base/postgres.yaml"
+      - "helm-charts/kubeestatehub/templates/postgres.yaml"
+    statement: postgres alpine image requires its built-in UID 70 (initdb, PGDATA ownership)
+  - id: KSV-0021
+    paths:
+      - "manifests/base/postgres.yaml"
+      - "helm-charts/kubeestatehub/templates/postgres.yaml"
+    statement: postgres alpine image requires its built-in GID 70 (initdb, PGDATA ownership)
+  # The operator's job is to create and replace the CronJobs it owns (RealEstateSync ->
+  # CronJob). Its Role is namespaced and limited to get/create/update on batch/cronjobs
+  # (no patch, delete, pods or other workload kinds).
+  - id: KSV-0048
+    paths:
+      - "manifests/components/operator/rbac.yaml"
+      - "helm-charts/kubeestatehub/templates/operator.yaml"
+    statement: the operator must create/replace its own CronJobs; Role is minimal and namespaced

@@ -1,0 +1,10 @@
+# Rego data for Trivy check KSV-0125 (images must come from trusted registries).
+# Loaded with --config-data / TRIVY_CONFIG_DATA=.trivy in .github/workflows/security.yaml.
+#   ghcr.io  - this project's own signed images (cosign keyless, see images.yaml)
+#   quay.io  - prometheus-community postgres-exporter
+#   docker.io - official library images (postgres, redis)
+ksv0125:
+  trusted_registries:
+    - ghcr.io
+    - quay.io
+    - docker.io
