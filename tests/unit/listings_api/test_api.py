@@ -176,6 +176,14 @@ class TestObservability:
         assert 'route="/api/v1/listings/1"' not in text
         assert "listings_cache_events_total" in text
 
+    def test_nonstandard_methods_share_one_label(self, client, caplog):
+        with caplog.at_level("INFO", logger="listings_api.access"):
+            client.open("/api/v1/listings", method="FOOBAR")
+        text = client.get("/metrics").get_data(as_text=True)
+        assert 'method="OTHER"' in text
+        assert "FOO" not in text
+        assert [r.method for r in caplog.records if r.name == "listings_api.access"] == ["OTHER"]
+
     def test_openapi_documents_every_api_route(self, client):
         spec = client.get("/openapi.json").json
         assert spec["openapi"].startswith("3.1")

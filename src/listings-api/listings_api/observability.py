@@ -24,6 +24,15 @@ IN_FLIGHT = Gauge("http_requests_in_flight", "In-flight HTTP requests")
 BUILD_INFO = Gauge("listings_api_build_info", "Build information", ["version", "environment"])
 
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+# HTTP methods are client-controlled tokens: map anything non-standard to one bucket so it
+# can neither inflate metric label cardinality nor put arbitrary text into access logs.
+_METHODS = frozenset({"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"})
+
+
+def _method_label(method: str) -> str:
+    return method if method in _METHODS else "OTHER"
+
+
 _RESERVED = set(logging.LogRecord("", 0, "", 0, "", None, None).__dict__) | {"message", "asctime"}
 
 
@@ -62,8 +71,9 @@ def instrument(app: Flask) -> None:
         elapsed = time.perf_counter() - g.get("start", time.perf_counter())
         # route template, never the raw path: keeps label cardinality bounded
         route = request.url_rule.rule if request.url_rule else "unmatched"
-        REQUESTS.labels(request.method, route, str(response.status_code)).inc()
-        LATENCY.labels(request.method, route).observe(elapsed)
+        method = _method_label(request.method)
+        REQUESTS.labels(method, route, str(response.status_code)).inc()
+        LATENCY.labels(method, route).observe(elapsed)
         response.headers["X-Request-ID"] = g.get("request_id", "")
         response.headers["Server-Timing"] = f"app;dur={elapsed * 1000:.1f}"
         if route not in {"/metrics", "/livez", "/readyz"}:
@@ -71,7 +81,7 @@ def instrument(app: Flask) -> None:
                 "request",
                 extra={
                     "request_id": g.get("request_id"),
-                    "method": request.method,
+                    "method": method,
                     "route": route,
                     "status": response.status_code,
                     "duration_ms": round(elapsed * 1000, 2),
