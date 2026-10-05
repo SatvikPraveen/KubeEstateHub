@@ -38,7 +38,7 @@ spec:
                 - {name: LOG_FORMAT, value: json}
               resources:
                 requests: {cpu: 250m, memory: 512Mi}
-                limits: {memory: 2Gi}
+                limits: {cpu: "2", memory: 2Gi}
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true

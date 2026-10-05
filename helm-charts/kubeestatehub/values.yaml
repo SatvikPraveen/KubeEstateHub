@@ -29,13 +29,14 @@ namespaceQuota:
   enabled: true
   requestsCpu: "8"
   requestsMemory: 16Gi
+  limitsCpu: "64"
   limitsMemory: 32Gi
 
 listingsApi:
   replicas: 2
   resources:
     requests: {cpu: 100m, memory: 192Mi}
-    limits: {memory: 384Mi}
+    limits: {cpu: "1", memory: 384Mi}
   autoscaling: {enabled: true, minReplicas: 2, maxReplicas: 10, targetCPUUtilizationPercentage: 70}
   pdb: {minAvailable: 1}
   config:
@@ -56,14 +57,14 @@ frontend:
   replicas: 2
   resources:
     requests: {cpu: 20m, memory: 32Mi}
-    limits: {memory: 128Mi}
+    limits: {cpu: 500m, memory: 128Mi}
   autoscaling: {enabled: true, minReplicas: 2, maxReplicas: 6, targetCPUUtilizationPercentage: 70}
   pdb: {minAvailable: 1}
 
 metricsService:
   resources:
     requests: {cpu: 20m, memory: 96Mi}
-    limits: {memory: 192Mi}
+    limits: {cpu: 500m, memory: 192Mi}
   cacheTtlSeconds: 30
 
 analytics:
@@ -72,7 +73,7 @@ analytics:
   pushgatewayUrl: ""
   resources:
     requests: {cpu: 250m, memory: 512Mi}
-    limits: {memory: 2Gi}
+    limits: {cpu: "2", memory: 2Gi}
 
 postgres:
   image: postgres:16.4-alpine
@@ -81,13 +82,13 @@ postgres:
   storageClassName: ""
   resources:
     requests: {cpu: 250m, memory: 512Mi}
-    limits: {memory: 1Gi}
+    limits: {cpu: "2", memory: 1Gi}
 
 redis:
   image: redis:7.4-alpine
   resources:
     requests: {cpu: 50m, memory: 64Mi}
-    limits: {memory: 256Mi}
+    limits: {cpu: 500m, memory: 256Mi}
 
 ingress:
   enabled: true
@@ -111,7 +112,7 @@ operator:
   enabled: true
   resources:
     requests: {cpu: 20m, memory: 96Mi}
-    limits: {memory: 256Mi}
+    limits: {cpu: 500m, memory: 256Mi}
 
 admissionPolicy:
   enabled: true

@@ -43,7 +43,7 @@ spec:
                  "-c", "track_io_timing=on", "-c", "password_encryption=scram-sha-256"]
           resources:
             requests: {cpu: 250m, memory: 512Mi}
-            limits: {memory: 1Gi}
+            limits: {cpu: "2", memory: 1Gi}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -75,7 +75,7 @@ spec:
               valueFrom: {secretKeyRef: {name: db-secret, key: password}}
           resources:
             requests: {cpu: 10m, memory: 32Mi}
-            limits: {memory: 128Mi}
+            limits: {cpu: 200m, memory: 128Mi}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

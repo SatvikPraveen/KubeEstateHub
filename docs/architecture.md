@@ -76,7 +76,10 @@ garbage-collects the CronJob through its ownerReference. See
   the parity.
 * **Pod security.** The namespace enforces the Pod Security Standard `restricted`. Every
   pod runs non-root with a read-only root filesystem, no capabilities, a RuntimeDefault
-  seccomp profile and no service-account token (except the operator).
+  seccomp profile and no service-account token (except the operator). UIDs/GIDs are above
+  10000 except the PostgreSQL server, which keeps the image's built-in UID 70. Every
+  container sets CPU and memory requests and limits; a LimitRange supplies bounded
+  defaults and a ResourceQuota caps the namespace (both checked by `policy/combined.rego`).
 * **Network.** Default-deny NetworkPolicies, with explicit ingress and egress per flow.
 * **Admission.** A CEL ValidatingAdmissionPolicy enforces pinned images, read-only root
   filesystems, memory limits and CPU requests.

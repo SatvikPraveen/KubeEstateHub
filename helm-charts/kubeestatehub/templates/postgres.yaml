@@ -62,7 +62,7 @@ spec:
               valueFrom: {secretKeyRef: {name: db-secret, key: password}}
           resources:
             requests: {cpu: 10m, memory: 32Mi}
-            limits: {memory: 128Mi}
+            limits: {cpu: 200m, memory: 128Mi}
           securityContext:
             {{- include "keh.containerSecurityContext" . | nindent 12 }}
             runAsUser: 65534

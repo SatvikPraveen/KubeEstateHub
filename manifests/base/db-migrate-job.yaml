@@ -20,8 +20,8 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 70
-        runAsGroup: 70
+        runAsUser: 10070      # psql client only; needs no passwd entry
+        runAsGroup: 10070
         seccompProfile: {type: RuntimeDefault}
       containers:
         - name: migrate
@@ -36,7 +36,7 @@ spec:
               valueFrom: {secretKeyRef: {name: db-secret, key: password}}
           resources:
             requests: {cpu: 20m, memory: 32Mi}
-            limits: {memory: 128Mi}
+            limits: {cpu: 500m, memory: 128Mi}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

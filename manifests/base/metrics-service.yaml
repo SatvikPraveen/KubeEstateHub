@@ -28,7 +28,7 @@ spec:
             - {name: CACHE_TTL_SECONDS, value: "30"}
           resources:
             requests: {cpu: 20m, memory: 96Mi}
-            limits: {memory: 192Mi}
+            limits: {cpu: 500m, memory: 192Mi}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

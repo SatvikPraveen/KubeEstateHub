@@ -21,6 +21,33 @@ default_deny if {
 	not np.spec.egress
 }
 
+# Namespace guard rails: per-container defaults/bounds and an aggregate quota. These
+# replace Trivy KSV-0039/KSV-0040, which cannot evaluate cross-resource state.
+deny contains "namespace must have a Container LimitRange with min, max, default and defaultRequest" if {
+	not limit_range
+}
+
+limit_range if {
+	some lr in by_kind("LimitRange")
+	some l in lr.spec.limits
+	l.type == "Container"
+	every f in ["min", "max", "default", "defaultRequest"] {
+		l[f].cpu
+		l[f].memory
+	}
+}
+
+deny contains "namespace must have a ResourceQuota with hard requests and limits for cpu and memory" if {
+	not resource_quota
+}
+
+resource_quota if {
+	some rq in by_kind("ResourceQuota")
+	every f in ["requests.cpu", "requests.memory", "limits.cpu", "limits.memory"] {
+		rq.spec.hard[f]
+	}
+}
+
 # Every workload must be selected by at least one allow policy, otherwise default-deny
 # silently isolates it.
 deny contains msg if {

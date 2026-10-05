@@ -90,6 +90,9 @@
         "requestsMemory": {
           "type": "string"
         },
+        "limitsCpu": {
+          "type": "string"
+        },
         "limitsMemory": {
           "type": "string"
         }

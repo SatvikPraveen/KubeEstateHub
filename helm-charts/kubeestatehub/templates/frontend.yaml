@@ -18,7 +18,7 @@ spec:
     spec:
       serviceAccountName: frontend
       automountServiceAccountToken: false
-      securityContext: {{- include "keh.podSecurityContext" (dict "uid" 101) | nindent 8 }}
+      securityContext: {{- include "keh.podSecurityContext" (dict "uid" 10101) | nindent 8 }}
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname

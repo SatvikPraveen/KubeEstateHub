@@ -17,6 +17,7 @@ spec:
   hard:
     requests.cpu: "8"
     requests.memory: 16Gi
+    limits.cpu: "64"
     limits.memory: 32Gi
     persistentvolumeclaims: "10"
     requests.storage: 500Gi
@@ -29,6 +30,7 @@ metadata:
 spec:
   limits:
     - type: Container
+      min: {cpu: 10m, memory: 16Mi}
       defaultRequest: {cpu: 50m, memory: 64Mi}
-      default: {memory: 256Mi}
-      max: {memory: 4Gi}
+      default: {cpu: "1", memory: 256Mi}
+      max: {cpu: "4", memory: 4Gi}

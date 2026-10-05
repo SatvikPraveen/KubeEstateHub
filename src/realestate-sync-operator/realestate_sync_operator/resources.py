@@ -111,7 +111,7 @@ def build_cronjob(
         "env": env,
         "resources": {
             "requests": {"cpu": "100m", "memory": "256Mi"},
-            "limits": {"memory": "512Mi"},
+            "limits": {"cpu": "1", "memory": "512Mi"},
         },
         "securityContext": {
             "allowPrivilegeEscalation": False,

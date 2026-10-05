@@ -40,7 +40,7 @@ spec:
               valueFrom: {secretKeyRef: {name: api-secret, key: write-token}}
           resources:
             requests: {cpu: 100m, memory: 192Mi}
-            limits: {memory: 384Mi}
+            limits: {cpu: "1", memory: 384Mi}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

@@ -13,7 +13,7 @@ spec:
     spec:
       serviceAccountName: redis
       automountServiceAccountToken: false
-      securityContext: {{- include "keh.podSecurityContext" (dict "uid" 999) | nindent 8 }}
+      securityContext: {{- include "keh.podSecurityContext" (dict "uid" 10999) | nindent 8 }}
       containers:
         - name: redis
           image: {{ .Values.redis.image }}

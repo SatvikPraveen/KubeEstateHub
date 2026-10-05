@@ -7,7 +7,7 @@ listingsApi:
   replicas: 3
   resources:
     requests: {cpu: 250m, memory: 256Mi}
-    limits: {memory: 512Mi}
+    limits: {cpu: "2", memory: 512Mi}
   autoscaling: {minReplicas: 3, maxReplicas: 20}
   pdb: {minAvailable: 2}
   config: {GUNICORN_WORKERS: "3"}
@@ -15,7 +15,7 @@ postgres:
   storage: 100Gi
   resources:
     requests: {cpu: "1", memory: 2Gi}
-    limits: {memory: 4Gi}
+    limits: {cpu: "4", memory: 4Gi}
 ingress:
   host: kubeestatehub.example.com
   tls: {enabled: true, clusterIssuer: letsencrypt-prod}

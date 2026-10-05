@@ -16,8 +16,8 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
-        runAsUser: 999
-        runAsGroup: 999
+        runAsUser: 10999      # redis needs no passwd entry; >10000 avoids host UID overlap
+        runAsGroup: 10999
         seccompProfile: {type: RuntimeDefault}
       containers:
         - name: redis
@@ -27,7 +27,7 @@ spec:
           ports: [{name: redis, containerPort: 6379}]
           resources:
             requests: {cpu: 50m, memory: 64Mi}
-            limits: {memory: 256Mi}
+            limits: {cpu: 500m, memory: 256Mi}
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
