@@ -13,7 +13,7 @@ x-hardened: &hardened
 
 services:
   postgres:
-    image: postgres:16.4-alpine
+    image: postgres:16.15-alpine
     environment:
       POSTGRES_USER: kubeestatehub
       POSTGRES_PASSWORD: kubeestatehub
@@ -27,7 +27,7 @@ services:
       retries: 30
 
   migrate:
-    image: postgres:16.4-alpine
+    image: postgres:16.15-alpine
     entrypoint: ["sh", "/db/migrate.sh", "/db/migrations"]
     environment:
       PGHOST: postgres
