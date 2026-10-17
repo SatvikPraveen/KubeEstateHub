@@ -36,6 +36,11 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
+    ignore:
+      # The stack targets PostgreSQL 16 (manifests, chart, CI integration job); a major
+      # upgrade needs a data migration and is done deliberately across all of them.
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
     groups:
       compose-images:
         patterns: ["*"]
