@@ -61,13 +61,14 @@ def apply_cronjob(body: kopf.Body) -> None:
         raise kopf.PermanentError(f"invalid spec: {exc}") from exc
     kopf.adopt(manifest, owner=body)  # ownerReference: CronJob is garbage-collected with the CR
     cj_name = manifest["metadata"]["name"]
+    cronjob = client.V1CronJob.model_validate(manifest)  # the typed client takes models, not dicts
     try:
-        batch.replace_namespaced_cron_job(cj_name, namespace, manifest)
+        batch.replace_namespaced_cron_job(cj_name, namespace, cronjob)
         log.info("updated cronjob %s/%s", namespace, cj_name)
     except ApiException as exc:
         if exc.status != 404:
             raise
-        batch.create_namespaced_cron_job(namespace, manifest)
+        batch.create_namespaced_cron_job(namespace, cronjob)
         log.info("created cronjob %s/%s", namespace, cj_name)
 
 
