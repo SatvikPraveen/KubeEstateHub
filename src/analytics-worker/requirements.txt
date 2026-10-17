@@ -1,7 +1,7 @@
 # Runtime dependencies for the analytics worker (pinned for reproducibility).
-numpy==2.5.3
+numpy==2.5.4
 pandas==3.0.6
 psycopg[binary]==3.3.6
-pydantic==2.14.0
+pydantic==2.14.1
 requests==2.34.2
 prometheus-client==0.26.0
